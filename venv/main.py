@@ -33,6 +33,23 @@ def start_screen(screen, clock):
                 terminate()
             elif event.type == pygame.KEYDOWN or \
                     event.type == pygame.MOUSEBUTTONDOWN:
+                rules_of_first(screen, clock)
+                return
+        pygame.display.flip()
+        clock.tick(FPS)
+
+
+def rules_of_first(screen, clock):
+
+    fon = pygame.transform.scale(load_image('first_rules.png'), (WIDTH, HEIGHT))
+    screen.blit(fon, (0, 0))
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                terminate()
+            elif event.type == pygame.KEYDOWN or \
+                    event.type == pygame.MOUSEBUTTONDOWN:
                 return
         pygame.display.flip()
         clock.tick(FPS)
@@ -43,8 +60,10 @@ def main():
     pygame.init()
     screen = pygame.display.set_mode((800, 600))
     clock = pygame.time.Clock()
-    running = True
+
     start_screen(screen, clock)
+
+    running = True
     while running:
         screen.fill(pygame.Color('black'))
         for event in pygame.event.get():
