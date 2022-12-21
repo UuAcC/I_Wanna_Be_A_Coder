@@ -3,8 +3,8 @@ import sys
 import pygame
 
 
-fps = 60
-btn_sprites = pygame.sprite.Group()
+FPS = 60
+BTN_SPRITES = pygame.sprite.Group()
 
 
 def load_image(name, colorkey=None):
@@ -23,7 +23,7 @@ class Button(pygame.sprite.Sprite):
                 load_image('boss_btn_clicked.png')]
 
     def __init__(self, n):
-        super().__init__(btn_sprites)
+        super().__init__(BTN_SPRITES)
         self.image = Button.images[n]
         self.rect = self.image.get_rect()
         self.mask = pygame.mask.from_surface(self.image)
@@ -40,7 +40,7 @@ class Button(pygame.sprite.Sprite):
 
 
 def main():
-    global fps
+    global FPS
     pygame.init()
     screen = pygame.display.set_mode((800, 600))
     running = True
@@ -59,9 +59,9 @@ def main():
                 for b in btns:
                     b.update(event.pos)
 
-        btn_sprites.draw(screen)
+        BTN_SPRITES.draw(screen)
         pygame.display.flip()
-        clock.tick(fps)
+        clock.tick(FPS)
 
 
 if __name__ == "__main__":
