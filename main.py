@@ -4,14 +4,6 @@ import pygame
 import random
 
 
-FPS = 60
-WIDTH = 800
-HEIGHT = 600
-BTN_SPRITES = pygame.sprite.Group()
-SCREEN = pygame.display.set_mode((800, 600))
-CLOCK = pygame.time.Clock()
-POINTS = []
-
 
 def load_image(name, colorkey=None):
     fullname = os.path.join('game_data', name)
@@ -20,6 +12,77 @@ def load_image(name, colorkey=None):
         sys.exit()
     image = pygame.image.load(fullname)
     return image
+
+
+def load_level(filename):
+    filename = "data/" + filename
+    with open(filename, 'r') as mapFile:
+        level_map = [line.strip() for line in mapFile]
+    max_width = max(map(len, level_map))
+    return list(map(lambda x: x.ljust(max_width, '.'), level_map))
+
+
+# ----------------------------- Глобальные переменные --------------------------------------
+FPS = 60
+WIDTH = 800
+HEIGHT = 600
+BTN_SPRITES = pygame.sprite.Group()
+SCREEN = pygame.display.set_mode((800, 600))
+CLOCK = pygame.time.Clock()
+POINTS = []
+ALL_SPRITES = pygame.sprite.Group()
+TILES_GROUP = pygame.sprite.Group()
+PLAYER_GROUP = pygame.sprite.Group()
+
+TILE_IMAGES = {
+    'wall': [load_image('block_1.png'), load_image('block_1.png'), load_image('block_2.png')],
+    'horn': [[load_image('spike_d-u.png'), load_image('spike_d-u_1.png')], load_image('spike_f.png')],
+    'gate': [load_image('right_door.png'), load_image('wrong_door.png')]
+}
+PLAYER_IMAGE = load_image('ufo.png')
+
+tile_width = tile_height = 25
+# ----------------------------- Глобальные переменные --------------------------------------
+
+
+# ----------------------------- Создание уровней --------------------------------------
+class Tile(pygame.sprite.Sprite):
+    def __init__(self, tile_type, pos_x, pos_y):
+        super().__init__(TILES_GROUP, ALL_SPRITES)
+        self.image = TILE_IMAGES[tile_type]
+        self.rect = self.image.get_rect().move(
+            tile_width * pos_x, tile_height * pos_y)
+
+
+class Player(pygame.sprite.Sprite):
+    def __init__(self, pos_x, pos_y):
+        super().__init__(PLAYER_GROUP, ALL_SPRITES)
+        self.image = PLAYER_IMAGE
+        self.rect = self.image.get_rect().move(
+            tile_width * pos_x + 15, tile_height * pos_y + 5)
+
+
+def generate_level(level):
+    new_player, x, y = None, None, None
+    for y in range(len(level)):
+        for x in range(len(level[y])):
+            if level[y][x] == '.':
+                pass
+            elif level[y][x] == '#':
+                Tile(random.choice('wall'), x, y)
+            elif level[y][x] == '!':
+                Tile(random.choice('horn'[0]), x, y)
+            elif level[y][x] == '$':
+                Tile('gate'[0], x, y)
+            elif level[y][x] == '?':
+                tile = pygame.transform.flip(random.choice('horn'[0]), False, True)
+                Tile(tile, x, y)
+    for y in range(len(level)):
+        for x in range(len(level[y])):
+            if level[y][x] == '@':
+                new_player = Player(x, y)
+    return new_player, x, y
+# ----------------------------- Создание уровней --------------------------------------
 
 
 # ----------------------------- Кнопки главного меню --------------------------------------
@@ -128,6 +191,7 @@ def main():
     label.add(BTN_SPRITES)
 
     running = True
+    player, level_x, level_y = generate_level(load_level('_just_run_level.txt'))
     btns = []
     for n in range(3):
         btns.append(Button(n))
@@ -147,6 +211,7 @@ def main():
                     b.update(event.pos, event.button)
 
         animation()
+        ALL_SPRITES.draw(SCREEN)
         BTN_SPRITES.draw(SCREEN)
         pygame.display.flip()
         CLOCK.tick(FPS)
