@@ -5,6 +5,8 @@ import random
 
 
 FPS = 60
+WIDTH = 800
+HEIGHT = 600
 BTN_SPRITES = pygame.sprite.Group()
 
 
@@ -42,7 +44,6 @@ class Button(pygame.sprite.Sprite):
                 self.image = Button.images[Button.c_images.index(self.image)]
 
 
-
 class Point:
     def __init__(self):
         self.h = 600
@@ -59,12 +60,54 @@ def animate(screen, point):
     pygame.draw.line(screen, point.color, (point.w, point.h), (point.w + 1, point.h), 1)
 
 
+def terminate():
+    pygame.quit()
+    sys.exit()
+
+
+def start_screen(screen, clock):
+
+    fon = pygame.transform.scale(load_image('fon.png'), (WIDTH, HEIGHT))
+    screen.blit(fon, (0, 0))
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                terminate()
+            elif event.type == pygame.KEYDOWN or \
+                    event.type == pygame.MOUSEBUTTONDOWN:
+                rules_of_first(screen, clock)
+                return
+        pygame.display.flip()
+        clock.tick(FPS)
+
+
+def rules_of_first(screen, clock):
+
+    fon = pygame.transform.scale(load_image('first_rules.png'), (WIDTH, HEIGHT))
+    screen.blit(fon, (0, 0))
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                terminate()
+            elif event.type == pygame.KEYDOWN or \
+                    event.type == pygame.MOUSEBUTTONDOWN:
+                return
+        pygame.display.flip()
+        clock.tick(FPS)
+
+
+
 def main():
     global FPS
     pygame.init()
     screen = pygame.display.set_mode((800, 600))
-    running = True
     clock = pygame.time.Clock()
+
+    start_screen(screen, clock)
+
+    running = True
     btns = []
     points = []
     for n in range(3):
