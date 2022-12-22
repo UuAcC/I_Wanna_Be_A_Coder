@@ -8,6 +8,9 @@ FPS = 60
 WIDTH = 800
 HEIGHT = 600
 BTN_SPRITES = pygame.sprite.Group()
+SCREEN = pygame.display.set_mode((800, 600))
+CLOCK = pygame.time.Clock()
+POINTS = []
 
 
 def load_image(name, colorkey=None):
@@ -19,6 +22,7 @@ def load_image(name, colorkey=None):
     return image
 
 
+# ----------------------------- Кнопки главного меню --------------------------------------
 class Button(pygame.sprite.Sprite):
     images = [load_image('first_btn.png'), load_image('second_btn.png'), load_image('boss_btn.png')]
     c_images = [load_image('first_btn_clicked.png'),
@@ -35,13 +39,16 @@ class Button(pygame.sprite.Sprite):
     def update(self, pos, button=3):
         x, y = pos
         if self.rect.x <= x <= self.rect.x + 200 and self.rect.y <= y <= self.rect.y + 100:
-            if button == 1:
-                pass
+            if button == 1 and self.rect.y == 200:
+                rules_of_first(SCREEN, CLOCK)
             if self.image in Button.images:
                 self.image = Button.c_images[Button.images.index(self.image)]
         else:
             if self.image in Button.c_images:
                 self.image = Button.images[Button.c_images.index(self.image)]
+# ----------------------------- Кнопки главного меню --------------------------------------
+
+# ----------------------------- Анимация внизу окна ---------------------------------------
 
 
 class Point:
@@ -60,60 +67,72 @@ def animate(screen, point):
     pygame.draw.line(screen, point.color, (point.w, point.h), (point.w + 1, point.h), 1)
 
 
+def animation():
+    POINTS.append(Point())
+    for p in POINTS:
+        animate(SCREEN, p)
+        p.update()
+# ----------------------------- Анимация внизу окна -----------------------------------------
+
+# ----------------------------- Заставка и окна правил --------------------------------------
+
+
 def terminate():
     pygame.quit()
     sys.exit()
 
 
 def start_screen(screen, clock):
-
-    fon = pygame.transform.scale(load_image('fon.png'), (WIDTH, HEIGHT))
-    screen.blit(fon, (0, 0))
-
     while True:
+        SCREEN.fill(pygame.Color('black'))
+        fon = pygame.transform.scale(load_image('fon.png'), (WIDTH, HEIGHT))
+        screen.blit(fon, (0, 0))
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 terminate()
             elif event.type == pygame.KEYDOWN or \
                     event.type == pygame.MOUSEBUTTONDOWN:
-                rules_of_first(screen, clock)
                 return
+        animation()
         pygame.display.flip()
         clock.tick(FPS)
 
 
 def rules_of_first(screen, clock):
-
-    fon = pygame.transform.scale(load_image('first_rules.png'), (WIDTH, HEIGHT))
-    screen.blit(fon, (0, 0))
-
     while True:
+        SCREEN.fill(pygame.Color('black'))
+        fon = pygame.transform.scale(load_image('first_rules.png'), (WIDTH, HEIGHT))
+        screen.blit(fon, (0, 0))
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 terminate()
             elif event.type == pygame.KEYDOWN or \
                     event.type == pygame.MOUSEBUTTONDOWN:
                 return
+        animation()
         pygame.display.flip()
         clock.tick(FPS)
-
+# ----------------------------- Заставка и окна правил --------------------------------------
 
 
 def main():
     global FPS
     pygame.init()
-    screen = pygame.display.set_mode((800, 600))
-    clock = pygame.time.Clock()
 
-    start_screen(screen, clock)
+    start_screen(SCREEN, CLOCK)
+
+    label = pygame.sprite.Sprite()
+    label.image = load_image('menu_label.png')
+    label.rect = label.image.get_rect()
+    label.rect.x, label.rect.y = 250, 50
+    label.add(BTN_SPRITES)
 
     running = True
     btns = []
-    points = []
     for n in range(3):
         btns.append(Button(n))
     while running:
-        screen.fill(pygame.Color('black'))
+        SCREEN.fill(pygame.Color('black'))
         for event in pygame.event.get():
 
             if event.type == pygame.QUIT:
@@ -127,13 +146,10 @@ def main():
                 for b in btns:
                     b.update(event.pos, event.button)
 
-        points.append(Point())
-        for p in points:
-            animate(screen, p)
-            p.update()
-        BTN_SPRITES.draw(screen)
+        animation()
+        BTN_SPRITES.draw(SCREEN)
         pygame.display.flip()
-        clock.tick(FPS)
+        CLOCK.tick(FPS)
 
 
 if __name__ == "__main__":
