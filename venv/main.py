@@ -31,7 +31,8 @@ class Button(pygame.sprite.Sprite):
         self.rect.bottomright = (300, 200 + 120 * n)
 
     def update(self, pos):
-        if self.rect.topleft <= pos <= self.rect.bottomright:
+        x, y = pos
+        if self.rect.x <= x <= self.rect.x + 200 and self.rect.y <= y <= self.rect.y + 100:
             if self.image in Button.images:
                 self.image = Button.c_images[Button.images.index(self.image)]
         else:
