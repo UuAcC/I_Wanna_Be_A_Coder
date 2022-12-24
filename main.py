@@ -4,7 +4,6 @@ import pygame
 import random
 
 
-
 def load_image(name, colorkey=None):
     fullname = os.path.join('game_data', name)
     if not os.path.isfile(fullname):
@@ -15,7 +14,7 @@ def load_image(name, colorkey=None):
 
 
 def load_level(filename):
-    filename = "data/" + filename
+    filename = "game_data/" + filename
     with open(filename, 'r') as mapFile:
         level_map = [line.strip() for line in mapFile]
     max_width = max(map(len, level_map))
@@ -30,13 +29,15 @@ BTN_SPRITES = pygame.sprite.Group()
 SCREEN = pygame.display.set_mode((800, 600))
 CLOCK = pygame.time.Clock()
 POINTS = []
+PLAYER = None
+LEVEL = 'menu'
 ALL_SPRITES = pygame.sprite.Group()
 TILES_GROUP = pygame.sprite.Group()
 PLAYER_GROUP = pygame.sprite.Group()
 
 TILE_IMAGES = {
     'wall': [load_image('block_1.png'), load_image('block_1.png'), load_image('block_2.png')],
-    'horn': [[load_image('spike_d-u.png'), load_image('spike_d-u_1.png')], load_image('spike_f.png')],
+    'vert_horn': [load_image('spike_d-u.png'), load_image('spike_d-u_1.png')],
     'gate': [load_image('right_door.png'), load_image('wrong_door.png')]
 }
 PLAYER_IMAGE = load_image('ufo.png')
@@ -47,9 +48,18 @@ tile_width = tile_height = 25
 
 # ----------------------------- Создание уровней --------------------------------------
 class Tile(pygame.sprite.Sprite):
-    def __init__(self, tile_type, pos_x, pos_y):
+    def __init__(self, tile_type, pos_x, pos_y, reverse=False):
         super().__init__(TILES_GROUP, ALL_SPRITES)
-        self.image = TILE_IMAGES[tile_type]
+        if tile_type == 'wall' or tile_type == 'vert_horn':
+            if reverse:
+                self.image = pygame.transform.flip(random.choice(TILE_IMAGES[tile_type]), False, True)
+            else:
+                self.image = random.choice(TILE_IMAGES[tile_type])
+        elif tile_type == 'gate':
+            if reverse:
+                self.image = TILE_IMAGES[tile_type][0]
+            else:
+                self.image = TILE_IMAGES[tile_type][1]
         self.rect = self.image.get_rect().move(
             tile_width * pos_x, tile_height * pos_y)
 
@@ -69,14 +79,13 @@ def generate_level(level):
             if level[y][x] == '.':
                 pass
             elif level[y][x] == '#':
-                Tile(random.choice('wall'), x, y)
+                Tile('wall', x, y)
             elif level[y][x] == '!':
-                Tile(random.choice('horn'[0]), x, y)
+                Tile('vert_horn', x, y)
             elif level[y][x] == '$':
-                Tile('gate'[0], x, y)
+                Tile('gate', x, y, True)
             elif level[y][x] == '?':
-                tile = pygame.transform.flip(random.choice('horn'[0]), False, True)
-                Tile(tile, x, y)
+                Tile('vert_horn', x, y, True)
     for y in range(len(level)):
         for x in range(len(level[y])):
             if level[y][x] == '@':
@@ -102,10 +111,11 @@ class Button(pygame.sprite.Sprite):
     def update(self, pos, button=3):
         x, y = pos
         if self.rect.x <= x <= self.rect.x + 200 and self.rect.y <= y <= self.rect.y + 100:
-            if button == 1 and self.rect.y == 200:
-                rules_of_first(SCREEN, CLOCK)
             if self.image in Button.images:
                 self.image = Button.c_images[Button.images.index(self.image)]
+            if button == 1 and self.rect.y == 200:
+                player, level_x, level_y = generate_level(load_level('_just_run_level.txt'))
+                rules_of_first(SCREEN, CLOCK)
         else:
             if self.image in Button.c_images:
                 self.image = Button.images[Button.c_images.index(self.image)]
@@ -127,7 +137,7 @@ class Point:
 
 
 def animate(screen, point):
-    pygame.draw.line(screen, point.color, (point.w, point.h), (point.w + 1, point.h), 1)
+    pygame.draw.line(screen, point.color, (point.w, point.h), (point.w + FPS // 60, point.h), 1)
 
 
 def animation():
@@ -162,6 +172,7 @@ def start_screen(screen, clock):
 
 
 def rules_of_first(screen, clock):
+    global LEVEL
     while True:
         SCREEN.fill(pygame.Color('black'))
         fon = pygame.transform.scale(load_image('first_rules.png'), (WIDTH, HEIGHT))
@@ -171,6 +182,7 @@ def rules_of_first(screen, clock):
                 terminate()
             elif event.type == pygame.KEYDOWN or \
                     event.type == pygame.MOUSEBUTTONDOWN:
+                LEVEL = 'first'
                 return
         animation()
         pygame.display.flip()
@@ -179,7 +191,7 @@ def rules_of_first(screen, clock):
 
 
 def main():
-    global FPS
+    global FPS, LEVEL
     pygame.init()
 
     start_screen(SCREEN, CLOCK)
@@ -191,7 +203,6 @@ def main():
     label.add(BTN_SPRITES)
 
     running = True
-    player, level_x, level_y = generate_level(load_level('_just_run_level.txt'))
     btns = []
     for n in range(3):
         btns.append(Button(n))
@@ -202,17 +213,21 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
 
-            if event.type == pygame.MOUSEMOTION:
-                for b in btns:
-                    b.update(event.pos)
+            if LEVEL == 'menu':
+                if event.type == pygame.MOUSEMOTION:
+                    for b in btns:
+                        b.update(event.pos)
 
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                for b in btns:
-                    b.update(event.pos, event.button)
+            if LEVEL == 'menu':
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    for b in btns:
+                        b.update(event.pos, event.button)
 
-        animation()
-        ALL_SPRITES.draw(SCREEN)
-        BTN_SPRITES.draw(SCREEN)
+        if LEVEL == 'menu':
+            animation()
+            BTN_SPRITES.draw(SCREEN)
+        elif LEVEL == 'first':
+            ALL_SPRITES.draw(SCREEN)
         pygame.display.flip()
         CLOCK.tick(FPS)
 
