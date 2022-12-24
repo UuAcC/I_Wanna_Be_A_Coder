@@ -30,6 +30,7 @@ SCREEN = pygame.display.set_mode((800, 600))
 CLOCK = pygame.time.Clock()
 POINTS = []
 PLAYER = None
+KEY = None
 LEVEL = 'menu'
 ALL_SPRITES = pygame.sprite.Group()
 TILES_GROUP = pygame.sprite.Group()
@@ -69,11 +70,20 @@ class Player(pygame.sprite.Sprite):
         super().__init__(PLAYER_GROUP, ALL_SPRITES)
         self.image = PLAYER_IMAGE
         self.rect = self.image.get_rect().move(
-            tile_width * pos_x + 15, tile_height * pos_y + 5)
+            tile_width * pos_x, tile_height * pos_y)
+
+    def update(self):
+        global KEY
+        self.rect.x += FPS // 15
+        if KEY == pygame.K_s:
+            self.rect.y += FPS // 12
+        elif KEY == pygame.K_w:
+            self.rect.y -= FPS // 12
 
 
 def generate_level(level):
-    new_player, x, y = None, None, None
+    global PLAYER
+    x, y = None, None
     for y in range(len(level)):
         for x in range(len(level[y])):
             if level[y][x] == '.':
@@ -89,8 +99,8 @@ def generate_level(level):
     for y in range(len(level)):
         for x in range(len(level[y])):
             if level[y][x] == '@':
-                new_player = Player(x, y)
-    return new_player, x, y
+                PLAYER = Player(x, y)
+    return PLAYER, x, y
 # ----------------------------- Создание уровней --------------------------------------
 
 
@@ -191,7 +201,7 @@ def rules_of_first(screen, clock):
 
 
 def main():
-    global FPS, LEVEL
+    global FPS, LEVEL, PLAYER, KEY
     pygame.init()
 
     start_screen(SCREEN, CLOCK)
@@ -217,17 +227,22 @@ def main():
                 if event.type == pygame.MOUSEMOTION:
                     for b in btns:
                         b.update(event.pos)
-
-            if LEVEL == 'menu':
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     for b in btns:
                         b.update(event.pos, event.button)
+
+            if LEVEL == 'first':
+                if event.type == pygame.KEYDOWN:
+                    KEY = event.key
+                if event.type == pygame.KEYUP:
+                    KEY = None
 
         if LEVEL == 'menu':
             animation()
             BTN_SPRITES.draw(SCREEN)
         elif LEVEL == 'first':
             ALL_SPRITES.draw(SCREEN)
+            PLAYER.update()
         pygame.display.flip()
         CLOCK.tick(FPS)
 
