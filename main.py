@@ -34,6 +34,7 @@ KEY = None
 LEVEL = 'menu'
 ALL_SPRITES = pygame.sprite.Group()
 TILES_GROUP = pygame.sprite.Group()
+GATES_GROUP = pygame.sprite.Group()
 PLAYER_GROUP = pygame.sprite.Group()
 
 TILE_IMAGES = {
@@ -79,6 +80,10 @@ class Player(pygame.sprite.Sprite):
             self.rect.y += FPS // 12
         elif KEY == pygame.K_w:
             self.rect.y -= FPS // 12
+        if pygame.sprite.spritecollideany(self, TILES_GROUP):
+            death_screen(SCREEN, CLOCK)
+            for elem in ALL_SPRITES:
+                elem.remove(ALL_SPRITES)
 
 
 def generate_level(level):
@@ -94,6 +99,12 @@ def generate_level(level):
                 Tile('vert_horn', x, y)
             elif level[y][x] == '$':
                 Tile('gate', x, y, True)
+                TILES_GROUP.remove(Tile('gate', x, y, True))
+                GATES_GROUP.add(Tile('gate', x, y, True))
+            elif level[y][x] == '%':
+                Tile('gate', x, y)
+                TILES_GROUP.remove(Tile('gate', x, y))
+                GATES_GROUP.add(Tile('gate', x, y))
             elif level[y][x] == '?':
                 Tile('vert_horn', x, y, True)
     for y in range(len(level)):
@@ -157,7 +168,7 @@ def animation():
         p.update()
 # ----------------------------- Анимация внизу окна -----------------------------------------
 
-# ----------------------------- Заставка и окна правил --------------------------------------
+# ----------------------------- Заставка, экран смерти и окна правил --------------------------------------
 
 
 def terminate():
@@ -181,6 +192,23 @@ def start_screen(screen, clock):
         clock.tick(FPS)
 
 
+def death_screen(screen, clock):
+    global LEVEL
+    while True:
+        fon = load_image('death.png')
+        screen.blit(fon, (250, 200))
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                terminate()
+            elif event.type == pygame.KEYDOWN or \
+                    event.type == pygame.MOUSEBUTTONDOWN:
+                LEVEL = 'menu'
+                return
+        pygame.display.flip()
+        clock.tick(FPS)
+
+
 def rules_of_first(screen, clock):
     global LEVEL
     while True:
@@ -197,7 +225,7 @@ def rules_of_first(screen, clock):
         animation()
         pygame.display.flip()
         clock.tick(FPS)
-# ----------------------------- Заставка и окна правил --------------------------------------
+# ----------------------------- Заставка, экран смерти и окна правил --------------------------------------
 
 
 def main():
@@ -239,6 +267,14 @@ def main():
 
         if LEVEL == 'menu':
             animation()
+            label = pygame.sprite.Sprite()
+            label.image = load_image('menu_label.png')
+            label.rect = label.image.get_rect()
+            label.rect.x, label.rect.y = 250, 50
+            label.add(BTN_SPRITES)
+            btns = []
+            for n in range(3):
+                btns.append(Button(n))
             BTN_SPRITES.draw(SCREEN)
         elif LEVEL == 'first':
             ALL_SPRITES.draw(SCREEN)
