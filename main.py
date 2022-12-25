@@ -99,7 +99,7 @@ class Player(pygame.sprite.Sprite):
         if pygame.sprite.spritecollideany(self, TILES_GROUP):
             death_screen(SCREEN, CLOCK)
             for elem in ALL_SPRITES:
-                elem.remove(ALL_SPRITES)
+                elem.kill()
             KEY = None
 
 
@@ -252,17 +252,15 @@ def main():
     pygame.init()
 
     start_screen(SCREEN, CLOCK)
-
+    btns = []
     label = pygame.sprite.Sprite()
     label.image = load_image('menu_label.png')
     label.rect = label.image.get_rect()
     label.rect.x, label.rect.y = 250, 50
     label.add(BTN_SPRITES)
-
-    running = True
-    btns = []
     for n in range(3):
         btns.append(Button(n))
+    running = True
     while running:
         SCREEN.fill(pygame.Color('black'))
         for event in pygame.event.get():
@@ -286,14 +284,6 @@ def main():
 
         if LEVEL == 'menu':
             animation()
-            label = pygame.sprite.Sprite()
-            label.image = load_image('menu_label.png')
-            label.rect = label.image.get_rect()
-            label.rect.x, label.rect.y = 250, 50
-            label.add(BTN_SPRITES)
-            btns = []
-            for n in range(3):
-                btns.append(Button(n))
             BTN_SPRITES.draw(SCREEN)
         elif LEVEL == 'first':
             ALL_SPRITES.draw(SCREEN)
