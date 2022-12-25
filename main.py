@@ -29,8 +29,7 @@ BTN_SPRITES = pygame.sprite.Group()
 SCREEN = pygame.display.set_mode((800, 600))
 CLOCK = pygame.time.Clock()
 POINTS = []
-PLAYER = None
-KEY = None
+PLAYER, KEY, CAMERA = None, None, None
 LEVEL = 'menu'
 ALL_SPRITES = pygame.sprite.Group()
 TILES_GROUP = pygame.sprite.Group()
@@ -46,6 +45,23 @@ PLAYER_IMAGE = load_image('ufo.png')
 
 tile_width = tile_height = 25
 # ----------------------------- Глобальные переменные --------------------------------------
+
+# ----------------------------- Камера --------------------------------------
+
+
+class Camera:
+    def __init__(self):
+        self.dx = 0
+        self.dy = 0
+
+    def apply(self, obj):
+        obj.rect.x += self.dx
+        obj.rect.y += self.dy
+
+    def update(self, target):
+        self.dx = -(target.rect.x + target.rect.w // 2 - WIDTH // 2)
+        self.dy = -(target.rect.y + target.rect.h // 2 - HEIGHT // 2)
+# ----------------------------- Камера --------------------------------------
 
 
 # ----------------------------- Создание уровней --------------------------------------
@@ -84,6 +100,7 @@ class Player(pygame.sprite.Sprite):
             death_screen(SCREEN, CLOCK)
             for elem in ALL_SPRITES:
                 elem.remove(ALL_SPRITES)
+            KEY = None
 
 
 def generate_level(level):
@@ -98,13 +115,13 @@ def generate_level(level):
             elif level[y][x] == '!':
                 Tile('vert_horn', x, y)
             elif level[y][x] == '$':
-                Tile('gate', x, y, True)
-                TILES_GROUP.remove(Tile('gate', x, y, True))
-                GATES_GROUP.add(Tile('gate', x, y, True))
+                tile = Tile('gate', x, y, True)
+                GATES_GROUP.add(tile)
+                TILES_GROUP.remove(tile)
             elif level[y][x] == '%':
-                Tile('gate', x, y)
-                TILES_GROUP.remove(Tile('gate', x, y))
-                GATES_GROUP.add(Tile('gate', x, y))
+                tile = Tile('gate', x, y)
+                GATES_GROUP.add(tile)
+                TILES_GROUP.remove(tile)
             elif level[y][x] == '?':
                 Tile('vert_horn', x, y, True)
     for y in range(len(level)):
@@ -193,7 +210,7 @@ def start_screen(screen, clock):
 
 
 def death_screen(screen, clock):
-    global LEVEL
+    global LEVEL, CAMERA
     while True:
         fon = load_image('death.png')
         screen.blit(fon, (250, 200))
@@ -204,13 +221,14 @@ def death_screen(screen, clock):
             elif event.type == pygame.KEYDOWN or \
                     event.type == pygame.MOUSEBUTTONDOWN:
                 LEVEL = 'menu'
+                CAMERA = None
                 return
         pygame.display.flip()
         clock.tick(FPS)
 
 
 def rules_of_first(screen, clock):
-    global LEVEL
+    global LEVEL, CAMERA
     while True:
         SCREEN.fill(pygame.Color('black'))
         fon = pygame.transform.scale(load_image('first_rules.png'), (WIDTH, HEIGHT))
@@ -221,6 +239,7 @@ def rules_of_first(screen, clock):
             elif event.type == pygame.KEYDOWN or \
                     event.type == pygame.MOUSEBUTTONDOWN:
                 LEVEL = 'first'
+                CAMERA = Camera()
                 return
         animation()
         pygame.display.flip()
@@ -279,6 +298,10 @@ def main():
         elif LEVEL == 'first':
             ALL_SPRITES.draw(SCREEN)
             PLAYER.update()
+            if CAMERA:
+                CAMERA.update(PLAYER)
+                for sprite in ALL_SPRITES:
+                    CAMERA.apply(sprite)
         pygame.display.flip()
         CLOCK.tick(FPS)
 
