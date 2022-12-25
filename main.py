@@ -252,12 +252,13 @@ def main():
     pygame.init()
 
     start_screen(SCREEN, CLOCK)
-    btns = []
+
     label = pygame.sprite.Sprite()
     label.image = load_image('menu_label.png')
     label.rect = label.image.get_rect()
     label.rect.x, label.rect.y = 250, 50
     label.add(BTN_SPRITES)
+    btns = []
     for n in range(3):
         btns.append(Button(n))
     running = True
