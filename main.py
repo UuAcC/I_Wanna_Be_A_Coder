@@ -91,7 +91,7 @@ class Player(pygame.sprite.Sprite):
 
     def update(self):
         global KEY
-        self.rect.x += FPS // 15
+        self.rect.x += FPS // 20
         if KEY == pygame.K_s:
             self.rect.y += FPS // 12
         elif KEY == pygame.K_w:
@@ -213,7 +213,7 @@ def death_screen(screen, clock):
     global LEVEL, CAMERA
     while True:
         fon = load_image('death.png')
-        screen.blit(fon, (250, 200))
+        screen.blit(fon, (250, 100))
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -250,6 +250,7 @@ def rules_of_first(screen, clock):
 def main():
     global FPS, LEVEL, PLAYER, KEY
     pygame.init()
+    pygame.display.set_caption('I wanna be a CODER (v.0.3.1)')
 
     start_screen(SCREEN, CLOCK)
 
