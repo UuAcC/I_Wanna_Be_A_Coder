@@ -41,7 +41,7 @@ TILE_IMAGES = {
     'vert_horn': [load_image('spike_d-u.png'), load_image('spike_d-u_1.png')],
     'gate': [load_image('right_door.png'), load_image('wrong_door.png')]
 }
-PLAYER_IMAGE = load_image('ufo.png')
+PLAYER_IMAGE = [load_image('ufo.png'), load_image('r_rob.png')]
 
 tile_width = tile_height = 25
 # ----------------------------- Глобальные переменные --------------------------------------
@@ -85,7 +85,7 @@ class Tile(pygame.sprite.Sprite):
 class Player(pygame.sprite.Sprite):
     def __init__(self, pos_x, pos_y):
         super().__init__(PLAYER_GROUP, ALL_SPRITES)
-        self.image = PLAYER_IMAGE
+        self.image = PLAYER_IMAGE[0]
         self.rect = self.image.get_rect().move(
             tile_width * pos_x, tile_height * pos_y)
 
