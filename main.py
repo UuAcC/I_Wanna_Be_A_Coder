@@ -22,7 +22,7 @@ def load_level(filename):
 
 
 # ----------------------------- Глобальные переменные --------------------------------------
-FPS = 60
+FPS = 70
 WIDTH = 800
 HEIGHT = 600
 BTN_SPRITES = pygame.sprite.Group()
@@ -39,7 +39,8 @@ PLAYER_GROUP = pygame.sprite.Group()
 TILE_IMAGES = {
     'wall': [load_image('block_1.png'), load_image('block_1.png'), load_image('block_2.png')],
     'vert_horn': [load_image('spike_d-u.png'), load_image('spike_d-u_1.png')],
-    'gate': [load_image('right_door.png'), load_image('wrong_door.png')]
+    'gate': [load_image('right_door.png'), load_image('wrong_door.png')],
+    'hor_horn': load_image('spike_f.png')
 }
 PLAYER_IMAGE = [load_image('ufo.png'), load_image('r_rob.png')]
 
@@ -66,7 +67,7 @@ class Camera:
 
 # ----------------------------- Создание уровней --------------------------------------
 class Tile(pygame.sprite.Sprite):
-    def __init__(self, tile_type, pos_x, pos_y, reverse=False):
+    def __init__(self, tile_type, pos_x, pos_y, reverse=False, flip=False):
         super().__init__(TILES_GROUP, ALL_SPRITES)
         if tile_type == 'wall' or tile_type == 'vert_horn':
             if reverse:
@@ -78,8 +79,14 @@ class Tile(pygame.sprite.Sprite):
                 self.image = TILE_IMAGES[tile_type][0]
             else:
                 self.image = TILE_IMAGES[tile_type][1]
+        elif tile_type == 'hor_horn':
+            if flip:
+                self.image = pygame.transform.flip(TILE_IMAGES[tile_type], True, False)
+            else:
+                self.image = TILE_IMAGES[tile_type]
         self.rect = self.image.get_rect().move(
             tile_width * pos_x, tile_height * pos_y)
+        self.mask = pygame.mask.from_surface(self.image)
 
 
 class Player(pygame.sprite.Sprite):
@@ -88,6 +95,7 @@ class Player(pygame.sprite.Sprite):
         self.image = PLAYER_IMAGE[0]
         self.rect = self.image.get_rect().move(
             tile_width * pos_x, tile_height * pos_y)
+        self.mask = pygame.mask.from_surface(self.image)
 
     def update(self):
         global KEY
@@ -96,11 +104,12 @@ class Player(pygame.sprite.Sprite):
             self.rect.y += FPS // 12
         elif KEY == pygame.K_w:
             self.rect.y -= FPS // 12
-        if pygame.sprite.spritecollideany(self, TILES_GROUP):
-            death_screen(SCREEN, CLOCK)
-            for elem in ALL_SPRITES:
-                elem.kill()
-            KEY = None
+        for sprite in TILES_GROUP:
+            if pygame.sprite.collide_mask(self, sprite):
+                death_screen(SCREEN, CLOCK)
+                for elem in ALL_SPRITES:
+                    elem.kill()
+                KEY = None
 
 
 def generate_level(level):
@@ -114,6 +123,8 @@ def generate_level(level):
                 Tile('wall', x, y)
             elif level[y][x] == '!':
                 Tile('vert_horn', x, y)
+            elif level[y][x] == '?':
+                Tile('vert_horn', x, y, True)
             elif level[y][x] == '$':
                 tile = Tile('gate', x, y, True)
                 GATES_GROUP.add(tile)
@@ -122,8 +133,10 @@ def generate_level(level):
                 tile = Tile('gate', x, y)
                 GATES_GROUP.add(tile)
                 TILES_GROUP.remove(tile)
-            elif level[y][x] == '?':
-                Tile('vert_horn', x, y, True)
+            elif level[y][x] == '=':
+                Tile('hor_horn', x, y)
+            elif level[y][x] == '-':
+                Tile('hor_horn', x, y, False, True)
     for y in range(len(level)):
         for x in range(len(level[y])):
             if level[y][x] == '@':
