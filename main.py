@@ -10,6 +10,14 @@ def load_image(name, colorkey=None):
         print(f"Файл с изображением '{fullname}' не найден")
         sys.exit()
     image = pygame.image.load(fullname)
+
+    if colorkey is not None:
+        image = image.convert()
+        if colorkey == -1:
+            colorkey = image.get_at((0, 0))
+        image.set_colorkey(colorkey)
+    else:
+        image = image.convert_alpha()
     return image
 
 
@@ -35,12 +43,13 @@ ALL_SPRITES = pygame.sprite.Group()
 TILES_GROUP = pygame.sprite.Group()
 GATES_GROUP = pygame.sprite.Group()
 PLAYER_GROUP = pygame.sprite.Group()
-
+FIRST_SCORE = 0
 TILE_IMAGES = {
     'wall': [load_image('block_1.png'), load_image('block_1.png'), load_image('block_2.png')],
     'vert_horn': [load_image('spike_d-u.png'), load_image('spike_d-u_1.png')],
     'gate': [load_image('right_door.png'), load_image('wrong_door.png')],
-    'hor_horn': load_image('spike_f.png')
+    'hor_horn': load_image('spike_f.png'),
+    'win_gate': load_image('win_gate.png')
 }
 PLAYER_IMAGE = [load_image('ufo.png'), load_image('r_rob.png')]
 
@@ -58,6 +67,8 @@ class Camera:
     def apply(self, obj):
         obj.rect.x += self.dx
         obj.rect.y += self.dy
+        if obj.rect.x <= -100:
+            obj.kill()
 
     def update(self, target):
         self.dx = -(target.rect.x + target.rect.w // 2 - WIDTH // 2)
@@ -79,6 +90,8 @@ class Tile(pygame.sprite.Sprite):
                 self.image = TILE_IMAGES[tile_type][0]
             else:
                 self.image = TILE_IMAGES[tile_type][1]
+        elif tile_type == 'win_gate':
+            self.image = TILE_IMAGES[tile_type]
         elif tile_type == 'hor_horn':
             if flip:
                 self.image = pygame.transform.flip(TILE_IMAGES[tile_type], True, False)
@@ -98,12 +111,23 @@ class Player(pygame.sprite.Sprite):
         self.mask = pygame.mask.from_surface(self.image)
 
     def update(self):
-        global KEY
+        global KEY, FIRST_SCORE
         self.rect.x += FPS // 20
         if KEY == pygame.K_s:
             self.rect.y += FPS // 12
         elif KEY == pygame.K_w:
             self.rect.y -= FPS // 12
+        for sprite in GATES_GROUP:
+            if pygame.sprite.collide_rect(self, sprite):
+                if sprite == TILE_IMAGES['gate'][0]:
+                    FIRST_SCORE += 1
+                elif sprite == TILE_IMAGES['gate'][1]:
+                    FIRST_SCORE -= 1
+                elif sprite == TILE_IMAGES['win_gate']:
+                    victory_screen(SCREEN, CLOCK)
+                    for elem in ALL_SPRITES:
+                        elem.kill()
+                    KEY = None
         for sprite in TILES_GROUP:
             if pygame.sprite.collide_mask(self, sprite):
                 death_screen(SCREEN, CLOCK)
@@ -131,6 +155,10 @@ def generate_level(level):
                 TILES_GROUP.remove(tile)
             elif level[y][x] == '%':
                 tile = Tile('gate', x, y)
+                GATES_GROUP.add(tile)
+                TILES_GROUP.remove(tile)
+            elif level[y][x] == 'w':
+                tile = Tile('win_gate', x, y)
                 GATES_GROUP.add(tile)
                 TILES_GROUP.remove(tile)
             elif level[y][x] == '=':
@@ -227,6 +255,24 @@ def death_screen(screen, clock):
     while True:
         fon = load_image('death.png')
         screen.blit(fon, (250, 100))
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                terminate()
+            elif event.type == pygame.KEYDOWN or \
+                    event.type == pygame.MOUSEBUTTONDOWN:
+                LEVEL = 'menu'
+                CAMERA = None
+                return
+        pygame.display.flip()
+        clock.tick(FPS)
+
+
+def victory_screen(screen, clock):
+    global LEVEL, CAMERA
+    while True:
+        fon = load_image('win.png')
+        screen.blit(fon, (50, 50))
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
