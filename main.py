@@ -42,7 +42,9 @@ LEVEL = 'menu'
 ALL_SPRITES = pygame.sprite.Group()
 TILES_GROUP = pygame.sprite.Group()
 GATES_GROUP = pygame.sprite.Group()
+RIGHT_DOORS, WRONG_DOORS, WIN_DOORS = pygame.sprite.Group(), pygame.sprite.Group(), pygame.sprite.Group()
 PLAYER_GROUP = pygame.sprite.Group()
+LOCK_GROUP = pygame.sprite.Group()
 FIRST_SCORE = 0
 TILE_IMAGES = {
     'wall': [load_image('block_1.png'), load_image('block_1.png'), load_image('block_2.png')],
@@ -52,7 +54,7 @@ TILE_IMAGES = {
     'win_gate': load_image('win_gate.png')
 }
 PLAYER_IMAGE = [load_image('ufo.png'), load_image('r_rob.png')]
-
+FIRST_COMPLETE, SECOND_COMPLETE = False, False
 tile_width = tile_height = 25
 # ----------------------------- Глобальные переменные --------------------------------------
 
@@ -67,7 +69,7 @@ class Camera:
     def apply(self, obj):
         obj.rect.x += self.dx
         obj.rect.y += self.dy
-        if obj.rect.x <= -100:
+        if obj.rect.x <= -25:
             obj.kill()
 
     def update(self, target):
@@ -111,23 +113,25 @@ class Player(pygame.sprite.Sprite):
         self.mask = pygame.mask.from_surface(self.image)
 
     def update(self):
-        global KEY, FIRST_SCORE
+        global KEY, FIRST_SCORE, FIRST_COMPLETE
         self.rect.x += FPS // 20
         if KEY == pygame.K_s:
             self.rect.y += FPS // 12
         elif KEY == pygame.K_w:
             self.rect.y -= FPS // 12
         for sprite in GATES_GROUP:
-            if pygame.sprite.collide_rect(self, sprite):
-                if sprite == TILE_IMAGES['gate'][0]:
-                    FIRST_SCORE += 1
-                elif sprite == TILE_IMAGES['gate'][1]:
-                    FIRST_SCORE -= 1
-                elif sprite == TILE_IMAGES['win_gate']:
+            if PLAYER_GROUP.sprites()[0].rect.colliderect(sprite.rect):
+                if sprite in WIN_DOORS.sprites():
+                    FIRST_COMPLETE = True
                     victory_screen(SCREEN, CLOCK)
                     for elem in ALL_SPRITES:
                         elem.kill()
                     KEY = None
+                    return
+                elif sprite in RIGHT_DOORS.sprites():
+                    FIRST_SCORE += 1
+                elif sprite in WRONG_DOORS.sprites():
+                    FIRST_SCORE -= 1
         for sprite in TILES_GROUP:
             if pygame.sprite.collide_mask(self, sprite):
                 death_screen(SCREEN, CLOCK)
@@ -152,14 +156,17 @@ def generate_level(level):
             elif level[y][x] == '$':
                 tile = Tile('gate', x, y, True)
                 GATES_GROUP.add(tile)
+                RIGHT_DOORS.add(tile)
                 TILES_GROUP.remove(tile)
             elif level[y][x] == '%':
                 tile = Tile('gate', x, y)
                 GATES_GROUP.add(tile)
+                WRONG_DOORS.add(tile)
                 TILES_GROUP.remove(tile)
             elif level[y][x] == 'w':
                 tile = Tile('win_gate', x, y)
                 GATES_GROUP.add(tile)
+                WIN_DOORS.add(tile)
                 TILES_GROUP.remove(tile)
             elif level[y][x] == '=':
                 Tile('hor_horn', x, y)
@@ -272,7 +279,7 @@ def victory_screen(screen, clock):
     global LEVEL, CAMERA
     while True:
         fon = load_image('win.png')
-        screen.blit(fon, (50, 50))
+        screen.blit(fon, (100, 75))
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -287,7 +294,7 @@ def victory_screen(screen, clock):
 
 
 def rules_of_first(screen, clock):
-    global LEVEL, CAMERA
+    global LEVEL, CAMERA, FIRST_SCORE
     while True:
         SCREEN.fill(pygame.Color('black'))
         fon = pygame.transform.scale(load_image('first_rules.png'), (WIDTH, HEIGHT))
@@ -298,6 +305,7 @@ def rules_of_first(screen, clock):
             elif event.type == pygame.KEYDOWN or \
                     event.type == pygame.MOUSEBUTTONDOWN:
                 LEVEL = 'first'
+                FIRST_SCORE = 0
                 CAMERA = Camera()
                 return
         animation()
@@ -307,7 +315,7 @@ def rules_of_first(screen, clock):
 
 
 def main():
-    global FPS, LEVEL, PLAYER, KEY
+    global FPS, LEVEL, PLAYER, KEY, FIRST_SCORE, LOCK_GROUP
     pygame.init()
     pygame.display.set_caption('I wanna be a CODER (v.0.3.1)')
 
@@ -318,6 +326,13 @@ def main():
     label.rect = label.image.get_rect()
     label.rect.x, label.rect.y = 250, 50
     label.add(BTN_SPRITES)
+
+    lock = pygame.sprite.Sprite()
+    lock.image = load_image('lock.png', -1)
+    lock.rect = lock.image.get_rect()
+    lock.rect.x, lock.rect.y = 25, 465
+    lock.add(LOCK_GROUP)
+
     btns = []
     for n in range(3):
         btns.append(Button(n))
@@ -346,6 +361,19 @@ def main():
         if LEVEL == 'menu':
             animation()
             BTN_SPRITES.draw(SCREEN)
+            if FIRST_COMPLETE:
+                color = None
+                if FIRST_SCORE > 25:
+                    color = (57, 255, 20)
+                elif FIRST_SCORE < -25:
+                    color = (255, 7, 58)
+                else:
+                    color = (255, 255, 255)
+                font = pygame.font.SysFont('Orbitron', 30)
+                text = font.render(f"Score: {FIRST_SCORE // 25}", True, color)
+                SCREEN.blit(text, (400, 230))
+            if not FIRST_COMPLETE or not SECOND_COMPLETE:
+                LOCK_GROUP.draw(SCREEN)
         elif LEVEL == 'first':
             ALL_SPRITES.draw(SCREEN)
             PLAYER.update()
