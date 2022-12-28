@@ -33,19 +33,24 @@ def load_level(filename):
 FPS = 70
 WIDTH = 800
 HEIGHT = 600
-BTN_SPRITES = pygame.sprite.Group()
-SCREEN = pygame.display.set_mode((800, 600))
+SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
 CLOCK = pygame.time.Clock()
 POINTS = []
+FIRST_SCORE = 0
+tile_width = tile_height = 25
 PLAYER, KEY, CAMERA = None, None, None
+FIRST_COMPLETE, SECOND_COMPLETE = False, False
 LEVEL = 'menu'
+
+BTN_SPRITES = pygame.sprite.Group()
+LOCK_GROUP = pygame.sprite.Group()
+
 ALL_SPRITES = pygame.sprite.Group()
 TILES_GROUP = pygame.sprite.Group()
 GATES_GROUP = pygame.sprite.Group()
 RIGHT_DOORS, WRONG_DOORS, WIN_DOORS = pygame.sprite.Group(), pygame.sprite.Group(), pygame.sprite.Group()
+
 PLAYER_GROUP = pygame.sprite.Group()
-LOCK_GROUP = pygame.sprite.Group()
-FIRST_SCORE = 0
 TILE_IMAGES = {
     'wall': [load_image('block_1.png'), load_image('block_1.png'), load_image('block_2.png')],
     'vert_horn': [load_image('spike_d-u.png'), load_image('spike_d-u_1.png')],
@@ -54,8 +59,6 @@ TILE_IMAGES = {
     'win_gate': load_image('win_gate.png')
 }
 PLAYER_IMAGE = [load_image('ufo.png'), load_image('r_rob.png')]
-FIRST_COMPLETE, SECOND_COMPLETE = False, False
-tile_width = tile_height = 25
 # ----------------------------- Глобальные переменные --------------------------------------
 
 # ----------------------------- Камера --------------------------------------
@@ -317,7 +320,7 @@ def rules_of_first(screen, clock):
 def main():
     global FPS, LEVEL, PLAYER, KEY, FIRST_SCORE, LOCK_GROUP
     pygame.init()
-    pygame.display.set_caption('I wanna be a CODER (v.0.3.1)')
+    pygame.display.set_caption('I wanna be a CODER (v.1.4.1)')
 
     start_screen(SCREEN, CLOCK)
 
