@@ -365,7 +365,6 @@ def main():
             animation()
             BTN_SPRITES.draw(SCREEN)
             if FIRST_COMPLETE:
-                color = None
                 if FIRST_SCORE > 25:
                     color = (57, 255, 20)
                 elif FIRST_SCORE < -25:
