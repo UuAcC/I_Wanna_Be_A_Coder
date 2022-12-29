@@ -34,7 +34,7 @@ FPS = 70
 WIDTH = 800
 HEIGHT = 600
 BTN_SPRITES = pygame.sprite.Group()
-SCREEN = pygame.display.set_mode((800, 600))
+SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
 CLOCK = pygame.time.Clock()
 POINTS = []
 PLAYER, KEY, CAMERA = None, None, None
@@ -46,12 +46,15 @@ RIGHT_DOORS, WRONG_DOORS, WIN_DOORS = pygame.sprite.Group(), pygame.sprite.Group
 PLAYER_GROUP = pygame.sprite.Group()
 LOCK_GROUP = pygame.sprite.Group()
 FIRST_SCORE, SECOND_SCORE = 0, 0
+JUMP_POWER = 10
+GRAVITY = 0.35
 TILE_IMAGES = {
     'wall': [load_image('block_1.png'), load_image('block_1.png'), load_image('block_2.png')],
     'vert_horn': [load_image('spike_d-u.png'), load_image('spike_d-u_1.png')],
     'gate': [load_image('right_door.png'), load_image('wrong_door.png')],
     'hor_horn': load_image('spike_f.png'),
-    'win_gate': load_image('win_gate.png')
+    'win_gate': load_image('win_gate.png'),
+    'enemy': load_image('enemy.png')
 }
 PLAYER_IMAGE = [load_image('ufo.png'), load_image('r_rob.png')]
 FIRST_COMPLETE, SECOND_COMPLETE = False, False
@@ -67,10 +70,12 @@ class Camera:
         self.dy = 0
 
     def apply(self, obj):
+        global LEVEL
         obj.rect.x += self.dx
         obj.rect.y += self.dy
-        if obj.rect.x <= -25:
-            obj.kill()
+        if LEVEL == 'first':
+            if obj.rect.x <= -25:
+                obj.kill()
 
     def update(self, target):
         self.dx = -(target.rect.x + target.rect.w // 2 - WIDTH // 2)
@@ -80,7 +85,7 @@ class Camera:
 
 # ----------------------------- Создание уровней --------------------------------------
 class Tile(pygame.sprite.Sprite):
-    def __init__(self, tile_type, pos_x, pos_y, reverse=False, flip=False):
+    def __init__(self, tile_type, pos_x, pos_y, reverse=False):
         super().__init__(TILES_GROUP, ALL_SPRITES)
         if tile_type == 'wall' or tile_type == 'vert_horn':
             if reverse:
@@ -95,7 +100,12 @@ class Tile(pygame.sprite.Sprite):
         elif tile_type == 'win_gate':
             self.image = TILE_IMAGES[tile_type]
         elif tile_type == 'hor_horn':
-            if flip:
+            if reverse:
+                self.image = pygame.transform.flip(TILE_IMAGES[tile_type], True, False)
+            else:
+                self.image = TILE_IMAGES[tile_type]
+        elif tile_type == 'enemy':
+            if reverse:
                 self.image = pygame.transform.flip(TILE_IMAGES[tile_type], True, False)
             else:
                 self.image = TILE_IMAGES[tile_type]
@@ -112,12 +122,14 @@ class Player(pygame.sprite.Sprite):
             self.image = PLAYER_IMAGE[0]
         else:
             self.image = PLAYER_IMAGE[1]
+        self.yvel = 0
+        self.onGround = False
         self.rect = self.image.get_rect().move(
             tile_width * pos_x, tile_height * pos_y)
         self.mask = pygame.mask.from_surface(self.image)
 
     def update(self):
-        global KEY, FIRST_SCORE, FIRST_COMPLETE, LEVEL
+        global KEY, FIRST_SCORE, FIRST_COMPLETE, LEVEL, JUMP_POWER
         if LEVEL == 'first':
             self.rect.x += FPS // 20
             if KEY == pygame.K_s:
@@ -143,6 +155,29 @@ class Player(pygame.sprite.Sprite):
                     for elem in ALL_SPRITES:
                         elem.kill()
                     KEY = None
+        else:
+            up = False
+            if KEY == pygame.K_SPACE:
+                up = True
+            if KEY == pygame.K_a:
+                self.image = pygame.transform.flip(PLAYER_IMAGE[1], True, False)
+                self.rect.x -= FPS // 12
+            elif KEY == pygame.K_d:
+                self.image = PLAYER_IMAGE[1]
+                self.rect.x += FPS // 12
+            if up:
+                if self.onGround:
+                    self.yvel = -JUMP_POWER
+            if not self.onGround:
+                self.yvel += GRAVITY
+            self.onGround = False
+            self.rect.y += self.yvel
+            for sprite in TILES_GROUP:
+                if pygame.sprite.collide_mask(self, sprite):
+                    if self.yvel > 0:
+                        self.rect.bottom = sprite.rect.top
+                        self.onGround = True
+                        self.yvel = 0
 
 
 def generate_level(level):
@@ -176,7 +211,9 @@ def generate_level(level):
             elif level[y][x] == '=':
                 Tile('hor_horn', x, y)
             elif level[y][x] == '-':
-                Tile('hor_horn', x, y, False, True)
+                Tile('hor_horn', x, y, True)
+            elif level[y][x] == '9':
+                Tile('enemy', x, y, True)
     for y in range(len(level)):
         for x in range(len(level[y])):
             if level[y][x] == '@':
@@ -381,7 +418,7 @@ def main():
                     for b in btns:
                         b.update(event.pos, event.button)
 
-            if LEVEL == 'first' or LEVEL == 'second':
+            else:
                 if event.type == pygame.KEYDOWN:
                     KEY = event.key
                 if event.type == pygame.KEYUP:
