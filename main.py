@@ -40,21 +40,23 @@ POINTS = []
 PLAYER, KEY, CAMERA = None, None, None
 LEVEL = 'menu'
 ALL_SPRITES = pygame.sprite.Group()
-TILES_GROUP = pygame.sprite.Group()
+TILES_GROUP, DEADLY_TILES_GROUP, SHOOT_GROUP = pygame.sprite.Group(), pygame.sprite.Group(), pygame.sprite.Group()
 GATES_GROUP = pygame.sprite.Group()
 RIGHT_DOORS, WRONG_DOORS, WIN_DOORS = pygame.sprite.Group(), pygame.sprite.Group(), pygame.sprite.Group()
-PLAYER_GROUP = pygame.sprite.Group()
+PLAYER_GROUP, ENEMY_GROUP = pygame.sprite.Group(), pygame.sprite.Group()
 LOCK_GROUP = pygame.sprite.Group()
 FIRST_SCORE, SECOND_SCORE = 0, 0
-JUMP_POWER = 10
-GRAVITY = 0.35
+JUMP_POWER = 5
+GRAVITY = 0.15
+left = right = up = False
 TILE_IMAGES = {
     'wall': [load_image('block_1.png'), load_image('block_1.png'), load_image('block_2.png')],
     'vert_horn': [load_image('spike_d-u.png'), load_image('spike_d-u_1.png')],
     'gate': [load_image('right_door.png'), load_image('wrong_door.png')],
     'hor_horn': load_image('spike_f.png'),
     'win_gate': load_image('win_gate.png'),
-    'enemy': load_image('enemy.png')
+    'enemy': load_image('enemy.png'),
+    'shoot': [load_image('enemy_shoot.png'), load_image('player_shoot.png')]
 }
 PLAYER_IMAGE = [load_image('ufo.png'), load_image('r_rob.png')]
 FIRST_COMPLETE, SECOND_COMPLETE = False, False
@@ -104,14 +106,53 @@ class Tile(pygame.sprite.Sprite):
                 self.image = pygame.transform.flip(TILE_IMAGES[tile_type], True, False)
             else:
                 self.image = TILE_IMAGES[tile_type]
-        elif tile_type == 'enemy':
-            if reverse:
-                self.image = pygame.transform.flip(TILE_IMAGES[tile_type], True, False)
-            else:
-                self.image = TILE_IMAGES[tile_type]
         self.rect = self.image.get_rect().move(
             tile_width * pos_x, tile_height * pos_y)
         self.mask = pygame.mask.from_surface(self.image)
+
+
+class Shoot(pygame.sprite.Sprite):
+    def __init__(self, pos_x, pos_y, reverse=False, speed=3):
+        global LEVEL
+        super().__init__(DEADLY_TILES_GROUP, ALL_SPRITES)
+        if reverse:
+            self.image = pygame.transform.flip(TILE_IMAGES['shoot'][0], True, False)
+        else:
+            self.image = TILE_IMAGES['shoot'][0]
+        self.rect = self.image.get_rect().move(
+            tile_width * pos_x, tile_height * pos_y)
+        self.mask = pygame.mask.from_surface(self.image)
+        self.speed = speed
+
+    def update(self):
+        self.rect.x += self.speed
+        for sprite in TILES_GROUP:
+            if pygame.sprite.collide_mask(self, sprite):
+                self.kill()
+
+
+class Enemy(pygame.sprite.Sprite):
+    def __init__(self, pos_x, pos_y, reverse=False, ss=18):
+        global LEVEL
+        super().__init__(ENEMY_GROUP, ALL_SPRITES)
+        self.reverse = False
+        if reverse:
+            self.image = pygame.transform.flip(TILE_IMAGES['enemy'], True, False)
+            self.reverse = True
+        else:
+            self.image = TILE_IMAGES['enemy']
+        self.rect = self.image.get_rect().move(
+            tile_width * pos_x, tile_height * pos_y)
+        self.mask = pygame.mask.from_surface(self.image)
+        self.attack_speed = ss
+        self.count = 0
+
+    def update(self):
+        self.count += 1
+        if self.count == self.attack_speed * 10:
+            shoot = Shoot(self.rect.x + 40, self.rect.y + 5, self.reverse)
+            SHOOT_GROUP.add(shoot)
+            self.count = 0
 
 
 class Player(pygame.sprite.Sprite):
@@ -123,13 +164,35 @@ class Player(pygame.sprite.Sprite):
         else:
             self.image = PLAYER_IMAGE[1]
         self.yvel = 0
+        self.xvel = 0
+        self.startX = pos_x
+        self.startY = pos_y
         self.onGround = False
         self.rect = self.image.get_rect().move(
             tile_width * pos_x, tile_height * pos_y)
         self.mask = pygame.mask.from_surface(self.image)
 
+    def collide(self, xvel, yvel, platforms):
+        for sprite in platforms:
+            if pygame.sprite.collide_rect(self, sprite):
+
+                if xvel > 0:
+                    self.rect.right = sprite.rect.left
+
+                if xvel < 0:
+                    self.rect.left = sprite.rect.right
+
+                if yvel > 0:
+                    self.rect.bottom = sprite.rect.top
+                    self.onGround = True
+                    self.yvel = 0
+
+                if yvel < 0:
+                    self.rect.top = sprite.rect.bottom
+                    self.yvel = 0
+
     def update(self):
-        global KEY, FIRST_SCORE, FIRST_COMPLETE, LEVEL, JUMP_POWER
+        global KEY, FIRST_SCORE, FIRST_COMPLETE, LEVEL, JUMP_POWER, GRAVITY, left, right, up
         if LEVEL == 'first':
             self.rect.x += FPS // 20
             if KEY == pygame.K_s:
@@ -156,15 +219,16 @@ class Player(pygame.sprite.Sprite):
                         elem.kill()
                     KEY = None
         else:
-            up = False
-            if KEY == pygame.K_SPACE:
-                up = True
+            if left:
+                self.xvel = -FPS // 12
+            if right:
+                self.xvel = FPS // 12
+            if not (left or right):  # стоим, когда нет указаний идти
+                self.xvel = 0
             if KEY == pygame.K_a:
                 self.image = pygame.transform.flip(PLAYER_IMAGE[1], True, False)
-                self.rect.x -= FPS // 12
             elif KEY == pygame.K_d:
                 self.image = PLAYER_IMAGE[1]
-                self.rect.x += FPS // 12
             if up:
                 if self.onGround:
                     self.yvel = -JUMP_POWER
@@ -172,16 +236,20 @@ class Player(pygame.sprite.Sprite):
                 self.yvel += GRAVITY
             self.onGround = False
             self.rect.y += self.yvel
-            for sprite in TILES_GROUP:
+            self.collide(0, self.yvel, TILES_GROUP)
+            self.rect.x += self.xvel
+            self.collide(self.xvel, 0, TILES_GROUP)
+            for sprite in DEADLY_TILES_GROUP:
                 if pygame.sprite.collide_mask(self, sprite):
-                    if self.yvel > 0:
-                        self.rect.bottom = sprite.rect.top
-                        self.onGround = True
-                        self.yvel = 0
+                    death_screen(SCREEN, CLOCK)
+                    for elem in ALL_SPRITES:
+                        elem.kill()
+                    KEY = None
+                    left = right = up = False
 
 
 def generate_level(level):
-    global PLAYER
+    global PLAYER, LEVEL
     x, y = None, None
     for y in range(len(level)):
         for x in range(len(level[y])):
@@ -190,9 +258,25 @@ def generate_level(level):
             elif level[y][x] == '#':
                 Tile('wall', x, y)
             elif level[y][x] == '!':
-                Tile('vert_horn', x, y)
+                tile = Tile('vert_horn', x, y)
+                if LEVEL == 'second':
+                    DEADLY_TILES_GROUP.add(tile)
+                    TILES_GROUP.remove(tile)
             elif level[y][x] == '?':
-                Tile('vert_horn', x, y, True)
+                tile = Tile('vert_horn', x, y, True)
+                if LEVEL == 'second':
+                    DEADLY_TILES_GROUP.add(tile)
+                    TILES_GROUP.remove(tile)
+            elif level[y][x] == '=':
+                tile = Tile('hor_horn', x, y)
+                if LEVEL == 'second':
+                    DEADLY_TILES_GROUP.add(tile)
+                    TILES_GROUP.remove(tile)
+            elif level[y][x] == '-':
+                tile = Tile('hor_horn', x, y, True)
+                if LEVEL == 'second':
+                    DEADLY_TILES_GROUP.add(tile)
+                    TILES_GROUP.remove(tile)
             elif level[y][x] == '$':
                 tile = Tile('gate', x, y, True)
                 GATES_GROUP.add(tile)
@@ -208,12 +292,9 @@ def generate_level(level):
                 GATES_GROUP.add(tile)
                 WIN_DOORS.add(tile)
                 TILES_GROUP.remove(tile)
-            elif level[y][x] == '=':
-                Tile('hor_horn', x, y)
-            elif level[y][x] == '-':
-                Tile('hor_horn', x, y, True)
             elif level[y][x] == '9':
-                Tile('enemy', x, y, True)
+                tile = Enemy(x, y, True)
+                ENEMY_GROUP.add(tile)
     for y in range(len(level)):
         for x in range(len(level[y])):
             if level[y][x] == '@':
@@ -381,7 +462,7 @@ def rules_of_second(screen, clock):
 
 
 def main():
-    global FPS, LEVEL, PLAYER, KEY, FIRST_SCORE, LOCK_GROUP
+    global FPS, LEVEL, PLAYER, KEY, FIRST_SCORE, LOCK_GROUP, left, right, up
     pygame.init()
     pygame.display.set_caption('I wanna be a CODER (v.0.3.1)')
 
@@ -418,11 +499,30 @@ def main():
                     for b in btns:
                         b.update(event.pos, event.button)
 
-            else:
+            elif LEVEL == 'first':
                 if event.type == pygame.KEYDOWN:
                     KEY = event.key
                 if event.type == pygame.KEYUP:
                     KEY = None
+
+            elif LEVEL == 'second':
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_a:
+                    KEY = event.key
+                    left = True
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_d:
+                    KEY = event.key
+                    right = True
+
+                if event.type == pygame.KEYUP and event.key == pygame.K_d:
+                    KEY = event.key
+                    right = False
+                if event.type == pygame.KEYUP and event.key == pygame.K_a:
+                    KEY = event.key
+                    left = False
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                    up = True
+                if event.type == pygame.KEYUP and event.key == pygame.K_SPACE:
+                    up = False
 
         if LEVEL == 'menu':
             animation()
@@ -447,6 +547,11 @@ def main():
                 CAMERA.update(PLAYER)
                 for sprite in ALL_SPRITES:
                     CAMERA.apply(sprite)
+            if LEVEL == 'second':
+                for bug in ENEMY_GROUP:
+                    bug.update()
+                for shoot in SHOOT_GROUP:
+                    shoot.update()
         pygame.display.flip()
         CLOCK.tick(FPS)
 
