@@ -87,7 +87,7 @@ class Camera:
 # ----------------------------- Камера --------------------------------------
 
 
-# ----------------------------- Создание уровней --------------------------------------
+# ----------------------------- Все объекты --------------------------------------
 class Tile(pygame.sprite.Sprite):
     def __init__(self, tile_type, pos_x, pos_y, reverse=False):
         super().__init__(TILES_GROUP, ALL_SPRITES)
@@ -167,8 +167,10 @@ class Enemy(pygame.sprite.Sprite):
             shoot = Shoot((self.rect.x + 40), (self.rect.y + 5), 'enemy_shoot', self.reverse)
             SHOOT_GROUP.add(shoot)
             self.count = 0
+# ----------------------------- Все объекты --------------------------------------
 
 
+# ----------------------------- Игрок --------------------------------------
 class Player(pygame.sprite.Sprite):
     def __init__(self, pos_x, pos_y):
         global LEVEL
@@ -263,20 +265,22 @@ class Player(pygame.sprite.Sprite):
             self.collide(self.xvel, 0, TILES_GROUP)
             for sprite in DEADLY_TILES_GROUP:
                 if pygame.sprite.collide_mask(self, sprite):
-                    death_screen(SCREEN, CLOCK)
                     for elem in ALL_SPRITES:
                         elem.kill()
                     KEY = None
                     left = right = up = False
+                    death_screen(SCREEN, CLOCK)
             for sprite in SHOOT_GROUP:
                 if pygame.sprite.collide_mask(self, sprite):
-                    death_screen(SCREEN, CLOCK)
                     for elem in ALL_SPRITES:
                         elem.kill()
                     KEY = None
                     left = right = up = False
+                    death_screen(SCREEN, CLOCK)
+# ----------------------------- Игрок --------------------------------------
 
 
+# ----------------------------- Создание уровней --------------------------------------
 def generate_level(level):
     global PLAYER, LEVEL
     x, y = None, None
@@ -416,7 +420,7 @@ def start_screen(screen, clock):
 
 
 def death_screen(screen, clock):
-    global LEVEL, CAMERA
+    global LEVEL, CAMERA, SECOND_SCORE
     while True:
         fon = load_image('death.png')
         screen.blit(fon, (250, 100))
@@ -426,9 +430,16 @@ def death_screen(screen, clock):
                 terminate()
             elif event.type == pygame.KEYDOWN or \
                     event.type == pygame.MOUSEBUTTONDOWN:
-                LEVEL = 'menu'
-                CAMERA = None
-                return
+                if LEVEL == 'first':
+                    LEVEL = 'menu'
+                    CAMERA = None
+                    return
+                elif LEVEL == 'second':
+                    CAMERA = None
+                    player, level_x, level_y = generate_level(load_level('_platformer_level.txt'))
+                    CAMERA = Camera()
+                    SECOND_SCORE -= 1
+                    return
         pygame.display.flip()
         clock.tick(FPS)
 
@@ -481,7 +492,7 @@ def rules_of_second(screen, clock):
                 terminate()
             elif event.type == pygame.KEYDOWN or \
                     event.type == pygame.MOUSEBUTTONDOWN:
-                SECOND_SCORE = 0
+                SECOND_SCORE = 30
                 CAMERA = Camera()
                 return
         animation()
@@ -490,13 +501,9 @@ def rules_of_second(screen, clock):
 # ----------------------------- Заставка, экран смерти и окна правил --------------------------------------
 
 
-def main():
-    global FPS, LEVEL, PLAYER, KEY, FIRST_SCORE, LOCK_GROUP, left, right, up
-    pygame.init()
-    pygame.display.set_caption('I wanna be a CODER (v.0.3.1)')
-
-    start_screen(SCREEN, CLOCK)
-
+# ----------------------------- Вспомогательные вещи ------------------------------------------------------
+def extras(SCREEN):
+    global LOCK_GROUP, BTN_SPRITES, FIRST_COMPLETE, FIRST_SCORE, LEVEL
     label = pygame.sprite.Sprite()
     label.image = load_image('menu_label.png')
     label.rect = label.image.get_rect()
@@ -509,6 +516,38 @@ def main():
     lock.rect.x, lock.rect.y = 25, 465
     lock.add(LOCK_GROUP)
 
+    if FIRST_COMPLETE and LEVEL == 'menu':
+        color = None
+        if FIRST_SCORE > 25:
+            color = (57, 255, 20)
+        elif FIRST_SCORE < -25:
+            color = (255, 7, 58)
+        else:
+            color = (255, 255, 255)
+        font = pygame.font.SysFont('Orbitron', 30)
+        text = font.render(f"Score: {FIRST_SCORE // 25}", True, color)
+        SCREEN.blit(text, (400, 230))
+    elif LEVEL == 'second':
+        color = None
+        if SECOND_SCORE > 15:
+            color = (57, 255, 20)
+        elif SECOND_SCORE < 0:
+            color = (255, 7, 58)
+        else:
+            color = (255, 255, 255)
+        font = pygame.font.SysFont('Orbitron', 30)
+        text = font.render(f"{SECOND_SCORE}", True, color)
+        SCREEN.blit(text, (700, 50))
+# ----------------------------- Вспомогательные вещи ------------------------------------------------------
+
+
+def main():
+    global FPS, LEVEL, PLAYER, KEY, FIRST_SCORE, left, right, up
+    pygame.init()
+    pygame.display.set_caption('I wanna be a CODER (v.0.3.1)')
+
+    start_screen(SCREEN, CLOCK)
+    extras(SCREEN)
     btns = []
     for n in range(3):
         btns.append(Button(n))
@@ -557,17 +596,7 @@ def main():
         if LEVEL == 'menu':
             animation()
             BTN_SPRITES.draw(SCREEN)
-            if FIRST_COMPLETE:
-                color = None
-                if FIRST_SCORE > 25:
-                    color = (57, 255, 20)
-                elif FIRST_SCORE < -25:
-                    color = (255, 7, 58)
-                else:
-                    color = (255, 255, 255)
-                font = pygame.font.SysFont('Orbitron', 30)
-                text = font.render(f"Score: {FIRST_SCORE // 25}", True, color)
-                SCREEN.blit(text, (400, 230))
+            extras(SCREEN)
             if not FIRST_COMPLETE or not SECOND_COMPLETE:
                 LOCK_GROUP.draw(SCREEN)
         else:
@@ -584,6 +613,7 @@ def main():
                     shoot.update()
                 for shoot in PLAYER_SHOOT_GROUP:
                     shoot.update()
+                extras(SCREEN)
         pygame.display.flip()
         CLOCK.tick(FPS)
 
