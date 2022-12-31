@@ -146,7 +146,7 @@ class Shoot(pygame.sprite.Sprite):
 
 
 class Enemy(pygame.sprite.Sprite):
-    def __init__(self, pos_x, pos_y, reverse=False, ss=12):
+    def __init__(self, pos_x, pos_y, reverse=False, atts=12, bs=3):
         global LEVEL
         super().__init__(ENEMY_GROUP, ALL_SPRITES)
         self.reverse = False
@@ -158,13 +158,14 @@ class Enemy(pygame.sprite.Sprite):
         self.rect = self.image.get_rect().move(
             tile_width * pos_x, tile_height * pos_y)
         self.mask = pygame.mask.from_surface(self.image)
-        self.attack_speed = ss
+        self.attack_speed = atts
+        self.bullet_speed = bs
         self.count = 0
 
     def update(self):
         self.count += 1
         if self.count == self.attack_speed * 10:
-            shoot = Shoot((self.rect.x + 40), (self.rect.y + 5), 'enemy_shoot', self.reverse)
+            shoot = Shoot((self.rect.x + 40), (self.rect.y + 5), 'enemy_shoot', self.reverse, self.bullet_speed)
             SHOOT_GROUP.add(shoot)
             self.count = 0
 # ----------------------------- Все объекты --------------------------------------
@@ -430,15 +431,15 @@ def death_screen(screen, clock):
                 terminate()
             elif event.type == pygame.KEYDOWN or \
                     event.type == pygame.MOUSEBUTTONDOWN:
-                if LEVEL == 'first':
-                    LEVEL = 'menu'
-                    CAMERA = None
-                    return
-                elif LEVEL == 'second':
+                if LEVEL == 'second':
                     CAMERA = None
                     player, level_x, level_y = generate_level(load_level('_platformer_level.txt'))
                     CAMERA = Camera()
                     SECOND_SCORE -= 1
+                    return
+                else:
+                    LEVEL = 'menu'
+                    CAMERA = None
                     return
         pygame.display.flip()
         clock.tick(FPS)
@@ -475,6 +476,7 @@ def rules_of_first(screen, clock):
                     event.type == pygame.MOUSEBUTTONDOWN:
                 FIRST_SCORE = 0
                 CAMERA = Camera()
+                LEVEL = 'first'
                 return
         animation()
         pygame.display.flip()
