@@ -502,8 +502,9 @@ def rules_of_second(screen, clock):
 
 
 # ----------------------------- Вспомогательные вещи ------------------------------------------------------
-def extras(SCREEN):
-    global LOCK_GROUP, BTN_SPRITES, FIRST_COMPLETE, FIRST_SCORE, LEVEL
+def extras():
+    global LOCK_GROUP, BTN_SPRITES
+
     label = pygame.sprite.Sprite()
     label.image = load_image('menu_label.png')
     label.rect = label.image.get_rect()
@@ -516,6 +517,9 @@ def extras(SCREEN):
     lock.rect.x, lock.rect.y = 25, 465
     lock.add(LOCK_GROUP)
 
+
+def scores(SCREEN):
+    global FIRST_COMPLETE, FIRST_SCORE, LEVEL
     if FIRST_COMPLETE and LEVEL == 'menu':
         color = None
         if FIRST_SCORE > 25:
@@ -547,7 +551,7 @@ def main():
     pygame.display.set_caption('I wanna be a CODER (v.0.3.1)')
 
     start_screen(SCREEN, CLOCK)
-    extras(SCREEN)
+    extras()
     btns = []
     for n in range(3):
         btns.append(Button(n))
@@ -596,7 +600,7 @@ def main():
         if LEVEL == 'menu':
             animation()
             BTN_SPRITES.draw(SCREEN)
-            extras(SCREEN)
+            scores(SCREEN)
             if not FIRST_COMPLETE or not SECOND_COMPLETE:
                 LOCK_GROUP.draw(SCREEN)
         else:
@@ -613,7 +617,7 @@ def main():
                     shoot.update()
                 for shoot in PLAYER_SHOOT_GROUP:
                     shoot.update()
-                extras(SCREEN)
+                scores(SCREEN)
         pygame.display.flip()
         CLOCK.tick(FPS)
 
