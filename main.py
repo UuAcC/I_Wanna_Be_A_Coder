@@ -565,26 +565,34 @@ def scores(SCREEN):
     global FIRST_COMPLETE, FIRST_SCORE, LEVEL
     if LEVEL == 'menu':
         if FIRST_COMPLETE:
+            text = None
             color = None
             if FIRST_SCORE > 25:
                 color = (57, 255, 20)
+                text = 'GOOD'
             elif FIRST_SCORE < -25:
+                text = 'BAD'
                 color = (255, 7, 58)
             else:
+                text = 'NOT BAD'
                 color = (255, 255, 255)
             font = pygame.font.SysFont('Orbitron', 30)
-            text = font.render(f"Score: {FIRST_SCORE // 25}", True, color)
+            text = font.render(f"Result: {text}", True, color)
             SCREEN.blit(text, (400, 230))
         if SECOND_COMPLETE:
+            text = None
             color = None
             if SECOND_SCORE > 15:
+                text = 'GOOD'
                 color = (57, 255, 20)
             elif SECOND_SCORE < 0:
+                text = 'BAD'
                 color = (255, 7, 58)
             else:
+                text = 'NOT BAD'
                 color = (255, 255, 255)
             font = pygame.font.SysFont('Orbitron', 30)
-            text = font.render(f"Score: {SECOND_SCORE}", True, color)
+            text = font.render(f"Result: {text}", True, color)
             SCREEN.blit(text, (400, 350))
     elif LEVEL == 'second':
         color = None
