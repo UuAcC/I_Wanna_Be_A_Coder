@@ -89,7 +89,7 @@ class Camera:
 
 # ----------------------------- Все объекты --------------------------------------
 class AnimatedSprite(pygame.sprite.Sprite):
-    def __init__(self, sheet, columns, rows, x, y, pos_x, pos_y):
+    def __init__(self, sheet, columns, rows, pos_x, pos_y):
         super().__init__(BONUS_SPRITES, ALL_SPRITES)
         self.frames = []
         self.cut_sheet(sheet, columns, rows)
@@ -234,7 +234,6 @@ class Player(pygame.sprite.Sprite):
                     self.yvel = 0
 
     def shoot(self):
-        shoot = None
         if self.reverse:
             shoot = Shoot((self.rect.left - 23), (self.rect.top + 8), 'player_shoot', False, -7)
         else:
@@ -368,7 +367,7 @@ def generate_level(level):
                 WIN_DOORS.add(tile)
                 TILES_GROUP.remove(tile)
             elif level[y][x] == '*':
-                money = AnimatedSprite(load_image('coin.png'), 6, 1, 25, 25, x, y)
+                money = AnimatedSprite(load_image('coin.png'), 6, 1, x, y)
     for y in range(len(level)):
         for x in range(len(level[y])):
             if level[y][x] == '@':
@@ -590,7 +589,7 @@ def extras():
     lock.add(LOCK_GROUP)
 
 
-def scores(SCREEN):
+def scores(screen):
     global FIRST_COMPLETE, FIRST_SCORE, SECOND_COMPLETE, SECOND_SCORE, LEVEL
     if LEVEL == 'menu':
         if FIRST_COMPLETE:
@@ -605,7 +604,7 @@ def scores(SCREEN):
                 color = (255, 255, 255)
             font = pygame.font.SysFont('Orbitron', 30)
             text = font.render(f"Result: {text}", True, color)
-            SCREEN.blit(text, (400, 230))
+            screen.blit(text, (400, 230))
         if SECOND_COMPLETE:
             if SECOND_SCORE > 15:
                 text = 'GOOD'
@@ -618,9 +617,8 @@ def scores(SCREEN):
                 color = (255, 255, 255)
             font = pygame.font.SysFont('Orbitron', 30)
             text = font.render(f"Result: {text}", True, color)
-            SCREEN.blit(text, (400, 350))
+            screen.blit(text, (400, 350))
     elif LEVEL == 'second':
-        color = None
         if SECOND_SCORE > 15:
             color = (57, 255, 20)
         elif SECOND_SCORE < 0:
@@ -629,7 +627,7 @@ def scores(SCREEN):
             color = (255, 255, 255)
         font = pygame.font.SysFont('Orbitron', 30)
         text = font.render(f"{SECOND_SCORE}", True, color)
-        SCREEN.blit(text, (700, 50))
+        screen.blit(text, (700, 50))
 # ----------------------------- Вспомогательные вещи ------------------------------------------------------
 
 
