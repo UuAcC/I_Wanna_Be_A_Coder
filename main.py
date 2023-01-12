@@ -33,32 +33,36 @@ def load_level(filename):
 FPS = 70
 WIDTH = 800
 HEIGHT = 600
+BTN_SPRITES = pygame.sprite.Group()
 SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
 CLOCK = pygame.time.Clock()
 POINTS = []
-FIRST_SCORE = 0
-tile_width = tile_height = 25
 PLAYER, KEY, CAMERA = None, None, None
-FIRST_COMPLETE, SECOND_COMPLETE = False, False
 LEVEL = 'menu'
-
-BTN_SPRITES = pygame.sprite.Group()
-LOCK_GROUP = pygame.sprite.Group()
-
 ALL_SPRITES = pygame.sprite.Group()
-TILES_GROUP = pygame.sprite.Group()
+TILES_GROUP, DEADLY_TILES_GROUP = pygame.sprite.Group(), pygame.sprite.Group()
 GATES_GROUP = pygame.sprite.Group()
 RIGHT_DOORS, WRONG_DOORS, WIN_DOORS = pygame.sprite.Group(), pygame.sprite.Group(), pygame.sprite.Group()
-
-PLAYER_GROUP = pygame.sprite.Group()
+PLAYER_GROUP, ENEMY_GROUP = pygame.sprite.Group(), pygame.sprite.Group()
+LOCK_GROUP, BONUS_SPRITES, RETURN_SPRITE = pygame.sprite.Group(), pygame.sprite.Group(), pygame.sprite.Group()
+PLAYER_SHOOT_GROUP, SHOOT_GROUP = pygame.sprite.Group(), pygame.sprite.Group()
+FIRST_SCORE, SECOND_SCORE = 0, 0
+JUMP_POWER = 5
+GRAVITY = 0.15
+left = right = up = False
 TILE_IMAGES = {
     'wall': [load_image('block_1.png'), load_image('block_1.png'), load_image('block_2.png')],
     'vert_horn': [load_image('spike_d-u.png'), load_image('spike_d-u_1.png')],
     'gate': [load_image('right_door.png'), load_image('wrong_door.png')],
     'hor_horn': load_image('spike_f.png'),
-    'win_gate': load_image('win_gate.png')
+    'win_gate': load_image('win_gate.png'),
+    'enemy': load_image('enemy.png'),
+    'enemy_shoot': load_image('enemy_shoot.png'),
+    'player_shoot': load_image('player_shoot.png')
 }
 PLAYER_IMAGE = [load_image('ufo.png'), load_image('r_rob.png')]
+FIRST_COMPLETE, SECOND_COMPLETE = False, False
+tile_width = tile_height = 25
 # ----------------------------- Глобальные переменные --------------------------------------
 
 # ----------------------------- Камера --------------------------------------
@@ -70,10 +74,12 @@ class Camera:
         self.dy = 0
 
     def apply(self, obj):
+        global LEVEL
         obj.rect.x += self.dx
         obj.rect.y += self.dy
-        if obj.rect.x <= -25:
-            obj.kill()
+        if LEVEL == 'first':
+            if obj.rect.x <= -25:
+                obj.kill()
 
     def update(self, target):
         self.dx = -(target.rect.x + target.rect.w // 2 - WIDTH // 2)
@@ -81,9 +87,38 @@ class Camera:
 # ----------------------------- Камера --------------------------------------
 
 
-# ----------------------------- Создание уровней --------------------------------------
+# ----------------------------- Все объекты --------------------------------------
+class AnimatedSprite(pygame.sprite.Sprite):
+    def __init__(self, sheet, columns, rows, pos_x, pos_y):
+        super().__init__(BONUS_SPRITES, ALL_SPRITES)
+        self.frames = []
+        self.cut_sheet(sheet, columns, rows)
+        self.cur_frame = 0
+        self.image = self.frames[self.cur_frame]
+        self.rect = self.image.get_rect().move(
+            tile_width * pos_x, tile_height * pos_y)
+        self.count = 0
+        self.mask = pygame.mask.from_surface(self.image)
+
+    def cut_sheet(self, sheet, columns, rows):
+        self.rect = pygame.Rect(0, 0, sheet.get_width() // columns,
+                                sheet.get_height() // rows)
+        for j in range(rows):
+            for i in range(columns):
+                frame_location = (self.rect.w * i, self.rect.h * j)
+                self.frames.append(sheet.subsurface(pygame.Rect(
+                    frame_location, self.rect.size)))
+
+    def update(self):
+        self.count += 1
+        if self.count == 10:
+            self.cur_frame = (self.cur_frame + 1) % len(self.frames)
+            self.image = self.frames[self.cur_frame]
+            self.count = 0
+
+
 class Tile(pygame.sprite.Sprite):
-    def __init__(self, tile_type, pos_x, pos_y, reverse=False, flip=False):
+    def __init__(self, tile_type, pos_x, pos_y, reverse=False):
         super().__init__(TILES_GROUP, ALL_SPRITES)
         if tile_type == 'wall' or tile_type == 'vert_horn':
             if reverse:
@@ -98,7 +133,7 @@ class Tile(pygame.sprite.Sprite):
         elif tile_type == 'win_gate':
             self.image = TILE_IMAGES[tile_type]
         elif tile_type == 'hor_horn':
-            if flip:
+            if reverse:
                 self.image = pygame.transform.flip(TILE_IMAGES[tile_type], True, False)
             else:
                 self.image = TILE_IMAGES[tile_type]
@@ -107,44 +142,188 @@ class Tile(pygame.sprite.Sprite):
         self.mask = pygame.mask.from_surface(self.image)
 
 
+class Shoot(pygame.sprite.Sprite):
+    def __init__(self, pos_x, pos_y, tile_group, reverse=False, speed=3):
+        global LEVEL
+        super().__init__(SHOOT_GROUP, ALL_SPRITES)
+        if reverse:
+            self.image = pygame.transform.flip(TILE_IMAGES[tile_group], True, False)
+        else:
+            self.image = TILE_IMAGES[tile_group]
+        self.rect = self.image.get_rect().move(
+            pos_x, pos_y)
+        self.mask = pygame.mask.from_surface(self.image)
+        self.speed = speed
+        self.tile = tile_group
+
+    def update(self):
+        self.rect.x += self.speed
+        for sprite in TILES_GROUP:
+            if pygame.sprite.collide_mask(self, sprite):
+                self.kill()
+
+
+class Enemy(pygame.sprite.Sprite):
+    def __init__(self, pos_x, pos_y, reverse=False, atts=12, bs=3):
+        global LEVEL
+        super().__init__(ENEMY_GROUP, ALL_SPRITES)
+        self.reverse = False
+        if reverse:
+            self.image = pygame.transform.flip(TILE_IMAGES['enemy'], True, False)
+            self.reverse = True
+        else:
+            self.image = TILE_IMAGES['enemy']
+        self.rect = self.image.get_rect().move(
+            tile_width * pos_x, tile_height * pos_y)
+        self.mask = pygame.mask.from_surface(self.image)
+        self.attack_speed = atts
+        self.bullet_speed = bs
+        self.count = 0
+        self.hp = 5
+
+    def update(self):
+        self.count += 1
+        if self.count == self.attack_speed * 10:
+            shoot = Shoot((self.rect.x + 40 if self.reverse else self.rect.x),
+                          (self.rect.y + 5), 'enemy_shoot',
+                          self.reverse, (self.bullet_speed if self.reverse else -self.bullet_speed))
+            SHOOT_GROUP.add(shoot)
+            self.count = 0
+        for bullet in PLAYER_SHOOT_GROUP:
+            if pygame.sprite.collide_mask(self, bullet):
+                bullet.kill()
+                self.hp -= 1
+        if self.hp == 0:
+            self.kill()
+
+# ----------------------------- Все объекты --------------------------------------
+
+
+# ----------------------------- Игрок --------------------------------------
 class Player(pygame.sprite.Sprite):
     def __init__(self, pos_x, pos_y):
+        global LEVEL
         super().__init__(PLAYER_GROUP, ALL_SPRITES)
-        self.image = PLAYER_IMAGE[0]
+        if LEVEL == 'first':
+            self.image = PLAYER_IMAGE[0]
+        else:
+            self.image = PLAYER_IMAGE[1]
+        self.yvel = 0
+        self.xvel = 0
+        self.startX = pos_x
+        self.startY = pos_y
+        self.reverse = False
+        self.onGround = False
         self.rect = self.image.get_rect().move(
             tile_width * pos_x, tile_height * pos_y)
         self.mask = pygame.mask.from_surface(self.image)
 
+    def collide(self, xvel, yvel, platforms):
+        for sprite in platforms:
+            if pygame.sprite.collide_rect(self, sprite):
+                if xvel > 0:
+                    self.rect.right = sprite.rect.left
+                if xvel < 0:
+                    self.rect.left = sprite.rect.right
+                if yvel > 0:
+                    self.rect.bottom = sprite.rect.top
+                    self.onGround = True
+                    self.yvel = 0
+                if yvel < 0:
+                    self.rect.top = sprite.rect.bottom
+                    self.yvel = 0
+
+    def shoot(self):
+        if self.reverse:
+            shoot = Shoot((self.rect.left - 23), (self.rect.top + 8), 'player_shoot', False, -7)
+        else:
+            shoot = Shoot(self.rect.right, (self.rect.top + 8), 'player_shoot', True, 7)
+        PLAYER_SHOOT_GROUP.add(shoot)
+        SHOOT_GROUP.remove(shoot)
+
     def update(self):
-        global KEY, FIRST_SCORE, FIRST_COMPLETE
-        self.rect.x += FPS // 20
-        if KEY == pygame.K_s:
-            self.rect.y += FPS // 12
-        elif KEY == pygame.K_w:
-            self.rect.y -= FPS // 12
-        for sprite in GATES_GROUP:
-            if PLAYER_GROUP.sprites()[0].rect.colliderect(sprite.rect):
-                if sprite in WIN_DOORS.sprites():
-                    FIRST_COMPLETE = True
+        global KEY, FIRST_SCORE, FIRST_COMPLETE, LEVEL, JUMP_POWER, GRAVITY, left, \
+            right, up, SECOND_SCORE, SECOND_COMPLETE
+        if LEVEL == 'first':
+            self.rect.x += FPS // 20
+            if KEY == pygame.K_s:
+                self.rect.y += FPS // 12
+            elif KEY == pygame.K_w:
+                self.rect.y -= FPS // 12
+            for sprite in GATES_GROUP:
+                if PLAYER_GROUP.sprites()[0].rect.colliderect(sprite.rect):
+                    if sprite in WIN_DOORS.sprites():
+                        FIRST_COMPLETE = True
+                        victory_screen(SCREEN, CLOCK)
+                        for elem in ALL_SPRITES:
+                            elem.kill()
+                        KEY = None
+                        return
+                    elif sprite in RIGHT_DOORS.sprites():
+                        FIRST_SCORE += 1
+                    elif sprite in WRONG_DOORS.sprites():
+                        FIRST_SCORE -= 1
+            for sprite in TILES_GROUP:
+                if pygame.sprite.collide_mask(self, sprite):
+                    death_screen(SCREEN, CLOCK)
+                    for elem in ALL_SPRITES:
+                        elem.kill()
+                    KEY = None
+        else:
+            if left:
+                self.xvel = -FPS // 12
+            if right:
+                self.xvel = FPS // 12
+            if not (left or right):
+                self.xvel = 0
+            if KEY == pygame.K_a:
+                self.image = pygame.transform.flip(PLAYER_IMAGE[1], True, False)
+                self.reverse = True
+            elif KEY == pygame.K_d:
+                self.image = PLAYER_IMAGE[1]
+                self.reverse = False
+            if up:
+                if self.onGround:
+                    self.yvel = -JUMP_POWER
+            if not self.onGround:
+                self.yvel += GRAVITY
+            self.onGround = False
+            self.rect.y += self.yvel
+            self.collide(0, self.yvel, TILES_GROUP)
+            self.rect.x += self.xvel
+            self.collide(self.xvel, 0, TILES_GROUP)
+            for sprite in DEADLY_TILES_GROUP:
+                if pygame.sprite.collide_mask(self, sprite):
+                    for elem in ALL_SPRITES:
+                        elem.kill()
+                    KEY = None
+                    left = right = up = False
+                    death_screen(SCREEN, CLOCK)
+            for sprite in SHOOT_GROUP:
+                if pygame.sprite.collide_mask(self, sprite):
+                    for elem in ALL_SPRITES:
+                        elem.kill()
+                    KEY = None
+                    left = right = up = False
+                    death_screen(SCREEN, CLOCK)
+            for sprite in BONUS_SPRITES:
+                if pygame.sprite.collide_mask(self, sprite):
+                    SECOND_SCORE += 5
+                    sprite.kill()
+            for sprite in WIN_DOORS:
+                if pygame.sprite.collide_mask(self, sprite):
+                    SECOND_COMPLETE = True
                     victory_screen(SCREEN, CLOCK)
                     for elem in ALL_SPRITES:
                         elem.kill()
                     KEY = None
                     return
-                elif sprite in RIGHT_DOORS.sprites():
-                    FIRST_SCORE += 1
-                elif sprite in WRONG_DOORS.sprites():
-                    FIRST_SCORE -= 1
-        for sprite in TILES_GROUP:
-            if pygame.sprite.collide_mask(self, sprite):
-                death_screen(SCREEN, CLOCK)
-                for elem in ALL_SPRITES:
-                    elem.kill()
-                KEY = None
+# ----------------------------- Игрок --------------------------------------
 
 
+# ----------------------------- Создание уровней --------------------------------------
 def generate_level(level):
-    global PLAYER
+    global PLAYER, LEVEL
     x, y = None, None
     for y in range(len(level)):
         for x in range(len(level[y])):
@@ -153,9 +332,25 @@ def generate_level(level):
             elif level[y][x] == '#':
                 Tile('wall', x, y)
             elif level[y][x] == '!':
-                Tile('vert_horn', x, y)
+                tile = Tile('vert_horn', x, y)
+                if LEVEL == 'second':
+                    DEADLY_TILES_GROUP.add(tile)
+                    TILES_GROUP.remove(tile)
             elif level[y][x] == '?':
-                Tile('vert_horn', x, y, True)
+                tile = Tile('vert_horn', x, y, True)
+                if LEVEL == 'second':
+                    DEADLY_TILES_GROUP.add(tile)
+                    TILES_GROUP.remove(tile)
+            elif level[y][x] == '=':
+                tile = Tile('hor_horn', x, y)
+                if LEVEL == 'second':
+                    DEADLY_TILES_GROUP.add(tile)
+                    TILES_GROUP.remove(tile)
+            elif level[y][x] == '-':
+                tile = Tile('hor_horn', x, y, True)
+                if LEVEL == 'second':
+                    DEADLY_TILES_GROUP.add(tile)
+                    TILES_GROUP.remove(tile)
             elif level[y][x] == '$':
                 tile = Tile('gate', x, y, True)
                 GATES_GROUP.add(tile)
@@ -171,21 +366,27 @@ def generate_level(level):
                 GATES_GROUP.add(tile)
                 WIN_DOORS.add(tile)
                 TILES_GROUP.remove(tile)
-            elif level[y][x] == '=':
-                Tile('hor_horn', x, y)
-            elif level[y][x] == '-':
-                Tile('hor_horn', x, y, False, True)
+            elif level[y][x] == '*':
+                money = AnimatedSprite(load_image('coin.png'), 6, 1, x, y)
     for y in range(len(level)):
         for x in range(len(level[y])):
             if level[y][x] == '@':
                 PLAYER = Player(x, y)
+            elif level[y][x] == '9':
+                tile = Enemy(x, y, True)
+                ENEMY_GROUP.add(tile)
+            elif level[y][x] == '8':
+                tile = Enemy(x, y)
+                ENEMY_GROUP.add(tile)
     return PLAYER, x, y
 # ----------------------------- Создание уровней --------------------------------------
 
 
 # ----------------------------- Кнопки главного меню --------------------------------------
 class Button(pygame.sprite.Sprite):
-    images = [load_image('first_btn.png'), load_image('second_btn.png'), load_image('boss_btn.png')]
+    images = [load_image('first_btn.png'),
+              load_image('second_btn.png'),
+              load_image('boss_btn.png')]
     c_images = [load_image('first_btn_clicked.png'),
                 load_image('second_btn_clicked.png'),
                 load_image('boss_btn_clicked.png')]
@@ -198,18 +399,46 @@ class Button(pygame.sprite.Sprite):
         self.rect.topleft = (100, 200 + 120 * n)
 
     def update(self, pos, button=3):
+        global LEVEL
         x, y = pos
         if self.rect.x <= x <= self.rect.x + 200 and self.rect.y <= y <= self.rect.y + 100:
             if self.image in Button.images:
                 self.image = Button.c_images[Button.images.index(self.image)]
             if button == 1 and self.rect.y == 200:
+                LEVEL = 'first'
                 player, level_x, level_y = generate_level(load_level('_just_run_level.txt'))
                 rules_of_first(SCREEN, CLOCK)
+            elif button == 1 and self.rect.y == 320:
+                LEVEL = 'second'
+                player, level_x, level_y = generate_level(load_level('_platformer_level.txt'))
+                rules_of_second(SCREEN, CLOCK)
         else:
             if self.image in Button.c_images:
                 self.image = Button.images[Button.c_images.index(self.image)]
 # ----------------------------- Кнопки главного меню --------------------------------------
 
+
+class ReturnBtn(pygame.sprite.Sprite):
+    def __init__(self):
+        global PLAYER
+        super().__init__(RETURN_SPRITE)
+        self.image = load_image('return_btn.png')
+        self.rect = self.image.get_rect()
+        self.mask = pygame.mask.from_surface(self.image)
+        self.rect.topleft = 5, 5
+
+    def update(self, pos, button=3):
+        global LEVEL, KEY
+        x, y = pos
+        if self.rect.x <= x <= self.rect.x + 50 and self.rect.y <= y <= self.rect.y + 50:
+            self.image = load_image('return_btn_clicked.png')
+            if button == 1:
+                LEVEL = 'menu'
+                for elem in ALL_SPRITES:
+                    elem.kill()
+                KEY = None
+        else:
+            self.image = load_image('return_btn.png')
 # ----------------------------- Анимация внизу окна ---------------------------------------
 
 
@@ -261,7 +490,7 @@ def start_screen(screen, clock):
 
 
 def death_screen(screen, clock):
-    global LEVEL, CAMERA
+    global LEVEL, CAMERA, SECOND_SCORE
     while True:
         fon = load_image('death.png')
         screen.blit(fon, (250, 100))
@@ -271,9 +500,16 @@ def death_screen(screen, clock):
                 terminate()
             elif event.type == pygame.KEYDOWN or \
                     event.type == pygame.MOUSEBUTTONDOWN:
-                LEVEL = 'menu'
-                CAMERA = None
-                return
+                if LEVEL == 'second':
+                    CAMERA = None
+                    player, level_x, level_y = generate_level(load_level('_platformer_level.txt'))
+                    CAMERA = Camera()
+                    SECOND_SCORE -= 1
+                    return
+                else:
+                    LEVEL = 'menu'
+                    CAMERA = None
+                    return
         pygame.display.flip()
         clock.tick(FPS)
 
@@ -307,8 +543,27 @@ def rules_of_first(screen, clock):
                 terminate()
             elif event.type == pygame.KEYDOWN or \
                     event.type == pygame.MOUSEBUTTONDOWN:
-                LEVEL = 'first'
                 FIRST_SCORE = 0
+                CAMERA = Camera()
+                LEVEL = 'first'
+                return
+        animation()
+        pygame.display.flip()
+        clock.tick(FPS)
+
+
+def rules_of_second(screen, clock):
+    global LEVEL, CAMERA, SECOND_SCORE
+    while True:
+        SCREEN.fill(pygame.Color('black'))
+        fon = pygame.transform.scale(load_image('second_rules.png'), (WIDTH, HEIGHT))
+        screen.blit(fon, (0, 0))
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                terminate()
+            elif event.type == pygame.KEYDOWN or \
+                    event.type == pygame.MOUSEBUTTONDOWN:
+                SECOND_SCORE = 30
                 CAMERA = Camera()
                 return
         animation()
@@ -317,12 +572,9 @@ def rules_of_first(screen, clock):
 # ----------------------------- Заставка, экран смерти и окна правил --------------------------------------
 
 
-def main():
-    global FPS, LEVEL, PLAYER, KEY, FIRST_SCORE, LOCK_GROUP
-    pygame.init()
-    pygame.display.set_caption('I wanna be a CODER (v.1.4.1)')
-
-    start_screen(SCREEN, CLOCK)
+# ----------------------------- Вспомогательные вещи ------------------------------------------------------
+def extras():
+    global LOCK_GROUP, BTN_SPRITES
 
     label = pygame.sprite.Sprite()
     label.image = load_image('menu_label.png')
@@ -336,7 +588,58 @@ def main():
     lock.rect.x, lock.rect.y = 25, 465
     lock.add(LOCK_GROUP)
 
+
+def scores(screen):
+    global FIRST_COMPLETE, FIRST_SCORE, SECOND_COMPLETE, SECOND_SCORE, LEVEL
+    if LEVEL == 'menu':
+        if FIRST_COMPLETE:
+            if FIRST_SCORE > 25:
+                color = (57, 255, 20)
+                text = 'GOOD'
+            elif FIRST_SCORE < -25:
+                text = 'BAD'
+                color = (255, 7, 58)
+            else:
+                text = 'NOT BAD'
+                color = (255, 255, 255)
+            font = pygame.font.SysFont('Orbitron', 30)
+            text = font.render(f"Result: {text}", True, color)
+            screen.blit(text, (400, 230))
+        if SECOND_COMPLETE:
+            if SECOND_SCORE > 15:
+                text = 'GOOD'
+                color = (57, 255, 20)
+            elif SECOND_SCORE < 0:
+                text = 'BAD'
+                color = (255, 7, 58)
+            else:
+                text = 'NOT BAD'
+                color = (255, 255, 255)
+            font = pygame.font.SysFont('Orbitron', 30)
+            text = font.render(f"Result: {text}", True, color)
+            screen.blit(text, (400, 350))
+    elif LEVEL == 'second':
+        if SECOND_SCORE > 15:
+            color = (57, 255, 20)
+        elif SECOND_SCORE < 0:
+            color = (255, 7, 58)
+        else:
+            color = (255, 255, 255)
+        font = pygame.font.SysFont('Orbitron', 30)
+        text = font.render(f"{SECOND_SCORE}", True, color)
+        screen.blit(text, (700, 50))
+# ----------------------------- Вспомогательные вещи ------------------------------------------------------
+
+
+def main():
+    global FPS, LEVEL, PLAYER, KEY, FIRST_SCORE, left, right, up
+    pygame.init()
+    pygame.display.set_caption('I wanna be a CODER (v.0.3.1)')
+
+    start_screen(SCREEN, CLOCK)
+    extras()
     btns = []
+    btn = ReturnBtn()
     for n in range(3):
         btns.append(Button(n))
     running = True
@@ -355,34 +658,63 @@ def main():
                     for b in btns:
                         b.update(event.pos, event.button)
 
-            if LEVEL == 'first':
+            elif LEVEL == 'first':
                 if event.type == pygame.KEYDOWN:
                     KEY = event.key
                 if event.type == pygame.KEYUP:
                     KEY = None
+                if event.type == pygame.MOUSEMOTION:
+                    btn.update(event.pos)
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    btn.update(event.pos, event.button)
+
+            elif LEVEL == 'second':
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_a:
+                    KEY = event.key
+                    left = True
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_d:
+                    KEY = event.key
+                    right = True
+                if event.type == pygame.KEYUP and event.key == pygame.K_d:
+                    KEY = event.key
+                    right = False
+                if event.type == pygame.KEYUP and event.key == pygame.K_a:
+                    KEY = event.key
+                    left = False
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                    up = True
+                if event.type == pygame.KEYUP and event.key == pygame.K_SPACE:
+                    up = False
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    PLAYER.shoot()
+                    btn.update(event.pos, event.button)
+                if event.type == pygame.MOUSEMOTION:
+                    btn.update(event.pos)
 
         if LEVEL == 'menu':
             animation()
             BTN_SPRITES.draw(SCREEN)
-            if FIRST_COMPLETE:
-                if FIRST_SCORE > 25:
-                    color = (57, 255, 20)
-                elif FIRST_SCORE < -25:
-                    color = (255, 7, 58)
-                else:
-                    color = (255, 255, 255)
-                font = pygame.font.SysFont('Orbitron', 30)
-                text = font.render(f"Score: {FIRST_SCORE // 25}", True, color)
-                SCREEN.blit(text, (400, 230))
+            scores(SCREEN)
             if not FIRST_COMPLETE or not SECOND_COMPLETE:
                 LOCK_GROUP.draw(SCREEN)
-        elif LEVEL == 'first':
+        else:
             ALL_SPRITES.draw(SCREEN)
+            RETURN_SPRITE.draw(SCREEN)
             PLAYER.update()
             if CAMERA:
                 CAMERA.update(PLAYER)
                 for sprite in ALL_SPRITES:
                     CAMERA.apply(sprite)
+            if LEVEL == 'second':
+                for m in BONUS_SPRITES:
+                    m.update()
+                for bug in ENEMY_GROUP:
+                    bug.update()
+                for shoot in SHOOT_GROUP:
+                    shoot.update()
+                for shoot in PLAYER_SHOOT_GROUP:
+                    shoot.update()
+                scores(SCREEN)
         pygame.display.flip()
         CLOCK.tick(FPS)
 
