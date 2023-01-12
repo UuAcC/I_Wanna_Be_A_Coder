@@ -89,7 +89,7 @@ class Camera:
 
 # ----------------------------- Все объекты --------------------------------------
 class AnimatedSprite(pygame.sprite.Sprite):
-    def __init__(self, sheet, columns, rows, pos_x, pos_y):
+    def __init__(self, sheet, columns, rows, pos_x, pos_y, count):
         super().__init__(BONUS_SPRITES, ALL_SPRITES)
         self.frames = []
         self.cut_sheet(sheet, columns, rows)
@@ -97,7 +97,8 @@ class AnimatedSprite(pygame.sprite.Sprite):
         self.image = self.frames[self.cur_frame]
         self.rect = self.image.get_rect().move(
             tile_width * pos_x, tile_height * pos_y)
-        self.count = 0
+        self.count = count
+        self.bufer = count
         self.mask = pygame.mask.from_surface(self.image)
 
     def cut_sheet(self, sheet, columns, rows):
@@ -110,11 +111,11 @@ class AnimatedSprite(pygame.sprite.Sprite):
                     frame_location, self.rect.size)))
 
     def update(self):
-        self.count += 1
-        if self.count == 10:
+        self.count -= 1
+        if self.count == 0:
             self.cur_frame = (self.cur_frame + 1) % len(self.frames)
             self.image = self.frames[self.cur_frame]
-            self.count = 0
+            self.count = self.bufer
 
 
 class Tile(pygame.sprite.Sprite):
@@ -367,7 +368,11 @@ def generate_level(level):
                 WIN_DOORS.add(tile)
                 TILES_GROUP.remove(tile)
             elif level[y][x] == '*':
-                money = AnimatedSprite(load_image('coin.png'), 6, 1, x, y)
+                AnimatedSprite(load_image('coin.png'), 6, 1, x, y, 10)
+            elif level[y][x] == 's':
+                saw = AnimatedSprite(load_image('saw.png'), 4, 1, x, y, 7)
+                BONUS_SPRITES.remove(saw)
+                DEADLY_TILES_GROUP.add(saw)
     for y in range(len(level)):
         for x in range(len(level[y])):
             if level[y][x] == '@':
@@ -406,11 +411,11 @@ class Button(pygame.sprite.Sprite):
                 self.image = Button.c_images[Button.images.index(self.image)]
             if button == 1 and self.rect.y == 200:
                 LEVEL = 'first'
-                player, level_x, level_y = generate_level(load_level('_just_run_level.txt'))
+                generate_level(load_level('_just_run_level.txt'))
                 rules_of_first(SCREEN, CLOCK)
             elif button == 1 and self.rect.y == 320:
                 LEVEL = 'second'
-                player, level_x, level_y = generate_level(load_level('_platformer_level.txt'))
+                generate_level(load_level('_platformer_level.txt'))
                 rules_of_second(SCREEN, CLOCK)
         else:
             if self.image in Button.c_images:
@@ -502,7 +507,7 @@ def death_screen(screen, clock):
                     event.type == pygame.MOUSEBUTTONDOWN:
                 if LEVEL == 'second':
                     CAMERA = None
-                    player, level_x, level_y = generate_level(load_level('_platformer_level.txt'))
+                    generate_level(load_level('_platformer_level.txt'))
                     CAMERA = Camera()
                     SECOND_SCORE -= 1
                     return
@@ -634,7 +639,7 @@ def scores(screen):
 def main():
     global FPS, LEVEL, PLAYER, KEY, FIRST_SCORE, left, right, up
     pygame.init()
-    pygame.display.set_caption('I wanna be a CODER (v.0.3.1)')
+    pygame.display.set_caption('I wanna be a CODER (v.2.0.0)')
 
     start_screen(SCREEN, CLOCK)
     extras()
@@ -708,6 +713,8 @@ def main():
             if LEVEL == 'second':
                 for m in BONUS_SPRITES:
                     m.update()
+                for s in DEADLY_TILES_GROUP:
+                    s.update()
                 for bug in ENEMY_GROUP:
                     bug.update()
                 for shoot in SHOOT_GROUP:
