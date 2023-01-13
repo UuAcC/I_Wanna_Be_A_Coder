@@ -33,7 +33,7 @@ def load_level(filename):
 FPS = 70
 WIDTH = 800
 HEIGHT = 600
-BTN_SPRITES = pygame.sprite.Group()
+BTN_SPRITES, SAVE_BTN_SPRITES = pygame.sprite.Group(), pygame.sprite.Group()
 SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
 CLOCK = pygame.time.Clock()
 POINTS = []
@@ -391,32 +391,45 @@ def generate_level(level):
 class Button(pygame.sprite.Sprite):
     images = [load_image('first_btn.png'),
               load_image('second_btn.png'),
-              load_image('boss_btn.png')]
+              load_image('boss_btn.png'),
+              load_image('save_menu_btn.png'),
+              load_image('save_btn.png'),
+              load_image('load_btn.png')]
     c_images = [load_image('first_btn_clicked.png'),
                 load_image('second_btn_clicked.png'),
-                load_image('boss_btn_clicked.png')]
+                load_image('boss_btn_clicked.png'),
+                load_image('save_menu_btn_clicked.png'),
+                load_image('save_btn_clicked.png'),
+                load_image('load_btn_clicked.png')]
 
     def __init__(self, n):
         super().__init__(BTN_SPRITES)
         self.image = Button.images[n]
         self.rect = self.image.get_rect()
         self.mask = pygame.mask.from_surface(self.image)
-        self.rect.topleft = (100, 200 + 120 * n)
+        if n < 3:
+            self.rect.topleft = (100, 200 + 120 * n)
+        elif n == 3:
+            self.rect.topleft = (700, 475)
+        else:
+            self.rect.topleft = (575, 200 + 120 * (n - 4))
 
     def update(self, pos, button=3):
         global LEVEL
         x, y = pos
-        if self.rect.x <= x <= self.rect.x + 200 and self.rect.y <= y <= self.rect.y + 100:
+        if self.rect.x <= x <= self.rect.x + self.rect.w and self.rect.y <= y <= self.rect.y + self.rect.h:
             if self.image in Button.images:
                 self.image = Button.c_images[Button.images.index(self.image)]
-            if button == 1 and self.rect.y == 200:
+            if button == 1 and self.rect.topleft == (100, 200):
                 LEVEL = 'first'
                 generate_level(load_level('_just_run_level.txt'))
                 rules_of_first(SCREEN, CLOCK)
-            elif button == 1 and self.rect.y == 320:
+            elif button == 1 and self.rect.topleft == (100, 320):
                 LEVEL = 'second'
                 generate_level(load_level('_platformer_level.txt'))
                 rules_of_second(SCREEN, CLOCK)
+            elif button == 1 and self.rect.topleft == (700, 475):
+                LEVEL = 'save'
         else:
             if self.image in Button.c_images:
                 self.image = Button.images[Button.c_images.index(self.image)]
@@ -454,8 +467,9 @@ class Point:
         self.color = (4, 242, 255)
 
     def update(self):
-        self.h -= 2
-        if self.h < 500:
+        if self.h > 500:
+            self.h -= 2
+        else:
             self.color = (0, 0, 0)
 
 
@@ -594,6 +608,15 @@ def extras():
     lock.add(LOCK_GROUP)
 
 
+def save_list(screen):
+    pygame.draw.rect(screen, (4, 242, 255), [(75, 125), (400, 375)], 5)
+    font = pygame.font.SysFont('Orbitron', 12)
+    for n in range(12):
+        text = font.render(f"Result 1st: ???, Result 2nd: ???", True, pygame.Color('cyan'))
+        screen.blit(text, (170, (125 + n * 25) + 17 + n * 5))
+        pygame.draw.rect(screen, pygame.Color('cyan'), [(85, (125 + n * 25) + 10 + n * 5), (380, 25)], 1)
+
+
 def scores(screen):
     global FIRST_COMPLETE, FIRST_SCORE, SECOND_COMPLETE, SECOND_SCORE, LEVEL
     if LEVEL == 'menu':
@@ -609,7 +632,7 @@ def scores(screen):
                 color = (255, 255, 255)
             font = pygame.font.SysFont('Orbitron', 30)
             text = font.render(f"Result: {text}", True, color)
-            screen.blit(text, (400, 230))
+            screen.blit(text, (350, 230))
         if SECOND_COMPLETE:
             if SECOND_SCORE > 15:
                 text = 'GOOD'
@@ -622,7 +645,7 @@ def scores(screen):
                 color = (255, 255, 255)
             font = pygame.font.SysFont('Orbitron', 30)
             text = font.render(f"Result: {text}", True, color)
-            screen.blit(text, (400, 350))
+            screen.blit(text, (350, 350))
     elif LEVEL == 'second':
         if SECOND_SCORE > 15:
             color = (57, 255, 20)
@@ -644,9 +667,15 @@ def main():
     start_screen(SCREEN, CLOCK)
     extras()
     btns = []
+    save_btns = []
     btn = ReturnBtn()
-    for n in range(3):
+    for n in range(4):
         btns.append(Button(n))
+    for n in range(4, 6):
+        b = Button(n)
+        BTN_SPRITES.remove(b)
+        SAVE_BTN_SPRITES.add(b)
+        save_btns.append(b)
     running = True
     while running:
         SCREEN.fill(pygame.Color('black'))
@@ -661,6 +690,16 @@ def main():
                         b.update(event.pos)
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     for b in btns:
+                        b.update(event.pos, event.button)
+
+            elif LEVEL == 'save':
+                if event.type == pygame.MOUSEMOTION:
+                    btn.update(event.pos)
+                    for b in save_btns:
+                        b.update(event.pos)
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    btn.update(event.pos, event.button)
+                    for b in save_btns:
                         b.update(event.pos, event.button)
 
             elif LEVEL == 'first':
@@ -702,6 +741,11 @@ def main():
             scores(SCREEN)
             if not FIRST_COMPLETE or not SECOND_COMPLETE:
                 LOCK_GROUP.draw(SCREEN)
+        elif LEVEL == 'save':
+            animation()
+            RETURN_SPRITE.draw(SCREEN)
+            SAVE_BTN_SPRITES.draw(SCREEN)
+            save_list(SCREEN)
         else:
             ALL_SPRITES.draw(SCREEN)
             RETURN_SPRITE.draw(SCREEN)
