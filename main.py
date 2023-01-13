@@ -33,7 +33,7 @@ def load_level(filename):
 FPS = 70
 WIDTH = 800
 HEIGHT = 600
-BTN_SPRITES, SAVE_BTN_SPRITES = pygame.sprite.Group(), pygame.sprite.Group()
+BTN_SPRITES, SAVE_BTN_SPRITES, CURSOR = pygame.sprite.Group(), pygame.sprite.Group(), pygame.sprite.Group()
 SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
 CLOCK = pygame.time.Clock()
 POINTS = []
@@ -592,6 +592,31 @@ def rules_of_second(screen, clock):
 
 
 # ----------------------------- Вспомогательные вещи ------------------------------------------------------
+class Cursor(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__(CURSOR)
+        self.image = load_image('cursor.png', -1)
+        self.rect = self.image.get_rect()
+        self.rect.x, self.rect.y = 60, 135
+        self.pos = 0
+
+    def update(self, n):
+        if -1 < self.pos + n < 12:
+            self.pos += n
+        self.rect.y = (125 + self.pos * 25) + 10 + self.pos * 5
+
+
+def save_list(screen):
+    pygame.draw.rect(screen, (4, 242, 255), [(50, 125), (425, 375)], 5)
+    font = pygame.font.SysFont('Orbitron', 12)
+    for n in range(12):
+        text = font.render(f"Result 1st: ???, Result 2nd: ???", True, pygame.Color('cyan'))
+        screen.blit(text, (170, (125 + n * 25) + 17 + n * 5))
+        pygame.draw.rect(screen, pygame.Color('cyan'), [(85, (125 + n * 25) + 10 + n * 5), (380, 25)], 1)
+# ----------------------------- Штуки для сейвов ------------------------------------------------------
+
+
+# ----------------------------- Вспомогательные вещи ------------------------------------------------------
 def extras():
     global LOCK_GROUP, BTN_SPRITES
 
@@ -606,15 +631,6 @@ def extras():
     lock.rect = lock.image.get_rect()
     lock.rect.x, lock.rect.y = 25, 465
     lock.add(LOCK_GROUP)
-
-
-def save_list(screen):
-    pygame.draw.rect(screen, (4, 242, 255), [(75, 125), (400, 375)], 5)
-    font = pygame.font.SysFont('Orbitron', 12)
-    for n in range(12):
-        text = font.render(f"Result 1st: ???, Result 2nd: ???", True, pygame.Color('cyan'))
-        screen.blit(text, (170, (125 + n * 25) + 17 + n * 5))
-        pygame.draw.rect(screen, pygame.Color('cyan'), [(85, (125 + n * 25) + 10 + n * 5), (380, 25)], 1)
 
 
 def scores(screen):
@@ -666,6 +682,7 @@ def main():
 
     start_screen(SCREEN, CLOCK)
     extras()
+    cur = Cursor()
     btns = []
     save_btns = []
     btn = ReturnBtn()
@@ -701,6 +718,8 @@ def main():
                     btn.update(event.pos, event.button)
                     for b in save_btns:
                         b.update(event.pos, event.button)
+                if event.type == pygame.MOUSEWHEEL:
+                    cur.update(event.y)
 
             elif LEVEL == 'first':
                 if event.type == pygame.KEYDOWN:
@@ -746,6 +765,7 @@ def main():
             RETURN_SPRITE.draw(SCREEN)
             SAVE_BTN_SPRITES.draw(SCREEN)
             save_list(SCREEN)
+            CURSOR.draw(SCREEN)
         else:
             ALL_SPRITES.draw(SCREEN)
             RETURN_SPRITE.draw(SCREEN)
