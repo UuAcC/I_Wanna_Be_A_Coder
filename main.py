@@ -1,3 +1,4 @@
+import csv
 import os
 import sys
 import pygame
@@ -5,7 +6,7 @@ import random
 
 
 def load_image(name, colorkey=None):
-    fullname = os.path.join('game_data', name)
+    fullname = os.path.join('game_data/sprites', name)
     if not os.path.isfile(fullname):
         print(f"Файл с изображением '{fullname}' не найден")
         sys.exit()
@@ -36,7 +37,7 @@ HEIGHT = 600
 BTN_SPRITES, SAVE_BTN_SPRITES, CURSOR = pygame.sprite.Group(), pygame.sprite.Group(), pygame.sprite.Group()
 SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
 CLOCK = pygame.time.Clock()
-POINTS = []
+POINTS, SAVES = [], []
 PLAYER, KEY, CAMERA = None, None, None
 LEVEL = 'menu'
 ALL_SPRITES = pygame.sprite.Group()
@@ -46,7 +47,7 @@ RIGHT_DOORS, WRONG_DOORS, WIN_DOORS = pygame.sprite.Group(), pygame.sprite.Group
 PLAYER_GROUP, ENEMY_GROUP = pygame.sprite.Group(), pygame.sprite.Group()
 LOCK_GROUP, BONUS_SPRITES, RETURN_SPRITE = pygame.sprite.Group(), pygame.sprite.Group(), pygame.sprite.Group()
 PLAYER_SHOOT_GROUP, SHOOT_GROUP = pygame.sprite.Group(), pygame.sprite.Group()
-FIRST_SCORE, SECOND_SCORE = 0, 0
+FIRST_SCORE, SECOND_SCORE, ERROR_TEXT = None, None, False
 JUMP_POWER = 5
 GRAVITY = 0.15
 left = right = up = False
@@ -412,10 +413,10 @@ class Button(pygame.sprite.Sprite):
         elif n == 3:
             self.rect.topleft = (700, 475)
         else:
-            self.rect.topleft = (575, 200 + 120 * (n - 4))
+            self.rect.topleft = (575, 125 + 100 * (n - 4))
 
-    def update(self, pos, button=3):
-        global LEVEL
+    def update(self, pos, button=3, cur=None):
+        global LEVEL, FIRST_SCORE, FIRST_COMPLETE, SECOND_SCORE, SECOND_COMPLETE, SCREEN, ERROR_TEXT
         x, y = pos
         if self.rect.x <= x <= self.rect.x + self.rect.w and self.rect.y <= y <= self.rect.y + self.rect.h:
             if self.image in Button.images:
@@ -430,6 +431,39 @@ class Button(pygame.sprite.Sprite):
                 rules_of_second(SCREEN, CLOCK)
             elif button == 1 and self.rect.topleft == (700, 475):
                 LEVEL = 'save'
+            elif button == 1 and self.rect.topleft == (575, 125):
+                if cur:
+                    try:
+                        ERROR_TEXT = False
+                        if FIRST_SCORE is not None:
+                            SAVES[cur - 1][0] = FIRST_SCORE
+                        else:
+                            SAVES[cur - 1][0] = '???'
+                        if SECOND_SCORE is not None:
+                            SAVES[cur - 1][1] = f'{SECOND_SCORE} \n'
+                        else:
+                            SAVES[cur - 1][1] = f'??? \n'
+                        result = [';'.join([str(x) for x in line]) for line in SAVES]
+                        table = open('game_data/saves.txt', 'w', encoding="utf8")
+                        for line in result:
+                            table.write(line)
+                        table.close()
+                        LEVEL = 'menu'
+                    except ValueError:
+                        ERROR_TEXT = 'ERROR: smth broke'
+            elif button == 1 and self.rect.topleft == (575, 225):
+                if cur:
+                    try:
+                        ERROR_TEXT = False
+                        FIRST_SCORE = int(SAVES[cur - 1][0])
+                        if FIRST_SCORE is not None:
+                            FIRST_COMPLETE = True
+                        SECOND_SCORE = int(SAVES[cur - 1][1])
+                        if SECOND_SCORE is not None:
+                            SECOND_COMPLETE = True
+                        LEVEL = 'menu'
+                    except ValueError:
+                        ERROR_TEXT = 'ERROR: broken save'
         else:
             if self.image in Button.c_images:
                 self.image = Button.images[Button.c_images.index(self.image)]
@@ -446,12 +480,13 @@ class ReturnBtn(pygame.sprite.Sprite):
         self.rect.topleft = 5, 5
 
     def update(self, pos, button=3):
-        global LEVEL, KEY
+        global LEVEL, KEY, ERROR_TEXT
         x, y = pos
         if self.rect.x <= x <= self.rect.x + 50 and self.rect.y <= y <= self.rect.y + 50:
             self.image = load_image('return_btn_clicked.png')
             if button == 1:
                 LEVEL = 'menu'
+                ERROR_TEXT = False
                 for elem in ALL_SPRITES:
                     elem.kill()
                 KEY = None
@@ -606,13 +641,24 @@ class Cursor(pygame.sprite.Sprite):
         self.rect.y = (125 + self.pos * 25) + 10 + self.pos * 5
 
 
-def save_list(screen):
+def save_list_visual(screen):
+    global SAVES
     pygame.draw.rect(screen, (4, 242, 255), [(50, 125), (425, 375)], 5)
     font = pygame.font.SysFont('Orbitron', 12)
-    for n in range(12):
-        text = font.render(f"Result 1st: ???, Result 2nd: ???", True, pygame.Color('cyan'))
+    for n, line in enumerate(SAVES):
+        text = font.render(f"Result 1st: {line[0]}, Result 2nd: {line[1]}", True, pygame.Color('cyan'))
         screen.blit(text, (170, (125 + n * 25) + 17 + n * 5))
         pygame.draw.rect(screen, pygame.Color('cyan'), [(85, (125 + n * 25) + 10 + n * 5), (380, 25)], 1)
+
+
+def save_list_init():
+    global SAVES
+    table = open('game_data/saves.txt', encoding="utf8")
+    reader = [line.split(';') for line in table]
+    for line in reader:
+        t = [line[0], line[1]]
+        SAVES.append(t)
+    table.close()
 # ----------------------------- Штуки для сейвов ------------------------------------------------------
 
 
@@ -678,11 +724,12 @@ def scores(screen):
 def main():
     global FPS, LEVEL, PLAYER, KEY, FIRST_SCORE, left, right, up
     pygame.init()
-    pygame.display.set_caption('I wanna be a CODER (v.2.0.0)')
+    pygame.display.set_caption('I wanna be a CODER (v.3.0.0)')
 
     start_screen(SCREEN, CLOCK)
     extras()
     cur = Cursor()
+    save_list_init()
     btns = []
     save_btns = []
     btn = ReturnBtn()
@@ -717,7 +764,7 @@ def main():
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     btn.update(event.pos, event.button)
                     for b in save_btns:
-                        b.update(event.pos, event.button)
+                        b.update(event.pos, event.button, (cur.pos + 1))
                 if event.type == pygame.MOUSEWHEEL:
                     cur.update(event.y)
 
@@ -764,8 +811,12 @@ def main():
             animation()
             RETURN_SPRITE.draw(SCREEN)
             SAVE_BTN_SPRITES.draw(SCREEN)
-            save_list(SCREEN)
+            save_list_visual(SCREEN)
             CURSOR.draw(SCREEN)
+            if ERROR_TEXT:
+                font = pygame.font.SysFont('Orbitron', 20)
+                text = font.render(f"{ERROR_TEXT}", True, pygame.Color('red'))
+                SCREEN.blit(text, (500, 470))
         else:
             ALL_SPRITES.draw(SCREEN)
             RETURN_SPRITE.draw(SCREEN)
