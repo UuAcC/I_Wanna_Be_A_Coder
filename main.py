@@ -1,4 +1,3 @@
-import csv
 import os
 import sys
 import pygame
@@ -42,12 +41,13 @@ PLAYER, KEY, CAMERA = None, None, None
 LEVEL = 'menu'
 ALL_SPRITES = pygame.sprite.Group()
 TILES_GROUP, DEADLY_TILES_GROUP = pygame.sprite.Group(), pygame.sprite.Group()
-GATES_GROUP = pygame.sprite.Group()
+GATES_GROUP = But = pygame.sprite.Group()
 RIGHT_DOORS, WRONG_DOORS, WIN_DOORS = pygame.sprite.Group(), pygame.sprite.Group(), pygame.sprite.Group()
 PLAYER_GROUP, ENEMY_GROUP = pygame.sprite.Group(), pygame.sprite.Group()
 LOCK_GROUP, BONUS_SPRITES, RETURN_SPRITE = pygame.sprite.Group(), pygame.sprite.Group(), pygame.sprite.Group()
 PLAYER_SHOOT_GROUP, SHOOT_GROUP = pygame.sprite.Group(), pygame.sprite.Group()
 FIRST_SCORE, SECOND_SCORE, ERROR_TEXT = None, None, False
+HEALTH = DIFF = 0
 JUMP_POWER = 5
 GRAVITY = 0.15
 left = right = up = False
@@ -370,6 +370,10 @@ def generate_level(level):
                 TILES_GROUP.remove(tile)
             elif level[y][x] == '*':
                 AnimatedSprite(load_image('coin.png'), 6, 1, x, y, 10)
+            elif level[y][x] == '&':
+                but = AnimatedSprite(load_image('boss_lever.png'), 2, 1, x, y, 20)
+                BONUS_SPRITES.remove(but)
+                But.add(but)
             elif level[y][x] == 's':
                 saw = AnimatedSprite(load_image('saw.png'), 4, 1, x, y, 7)
                 BONUS_SPRITES.remove(saw)
@@ -384,6 +388,8 @@ def generate_level(level):
             elif level[y][x] == '8':
                 tile = Enemy(x, y)
                 ENEMY_GROUP.add(tile)
+            # elif level[y][x] == 'B':
+            #
     return PLAYER, x, y
 # ----------------------------- Создание уровней --------------------------------------
 
@@ -429,6 +435,10 @@ class Button(pygame.sprite.Sprite):
                 LEVEL = 'second'
                 generate_level(load_level('_platformer_level.txt'))
                 rules_of_second(SCREEN, CLOCK)
+            elif button == 1 and self.rect.topleft == (100, 440) and (FIRST_COMPLETE and SECOND_COMPLETE):
+                LEVEL = 'boss'
+                generate_level(load_level('_boss_button.txt'))
+                rules_of_boss(SCREEN, CLOCK)
             elif button == 1 and self.rect.topleft == (700, 475):
                 LEVEL = 'save'
             elif button == 1 and self.rect.topleft == (575, 125):
@@ -623,6 +633,36 @@ def rules_of_second(screen, clock):
         animation()
         pygame.display.flip()
         clock.tick(FPS)
+
+
+def rules_of_boss(screen, clock):
+    global LEVEL, CAMERA, SECOND_SCORE, FIRST_SCORE, HEALTH, DIFF
+    while True:
+        SCREEN.fill(pygame.Color('black'))
+        fon = pygame.transform.scale(load_image('boss_rules.png'), (WIDTH, HEIGHT))
+        screen.blit(fon, (0, 0))
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                terminate()
+            elif event.type == pygame.KEYDOWN or \
+                    event.type == pygame.MOUSEBUTTONDOWN:
+                if FIRST_SCORE > 25:
+                    DIFF = 'easy'
+                elif FIRST_SCORE < -25:
+                    DIFF = 'hard'
+                else:
+                    DIFF = 'normal'
+                if SECOND_SCORE > 15:
+                    HEALTH = 3
+                elif SECOND_SCORE < 0:
+                    HEALTH = 1
+                else:
+                    HEALTH = 2
+                CAMERA = Camera()
+                return
+        animation()
+        pygame.display.flip()
+        clock.tick(FPS)
 # ----------------------------- Заставка, экран смерти и окна правил --------------------------------------
 
 
@@ -778,7 +818,7 @@ def main():
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     btn.update(event.pos, event.button)
 
-            elif LEVEL == 'second':
+            elif LEVEL == 'second' or LEVEL == 'boss':
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_a:
                     KEY = event.key
                     left = True
@@ -825,9 +865,11 @@ def main():
                 CAMERA.update(PLAYER)
                 for sprite in ALL_SPRITES:
                     CAMERA.apply(sprite)
-            if LEVEL == 'second':
+            if LEVEL == 'second' or LEVEL == 'boss':
                 for m in BONUS_SPRITES:
                     m.update()
+                for b in But:
+                    b.update()
                 for s in DEADLY_TILES_GROUP:
                     s.update()
                 for bug in ENEMY_GROUP:
