@@ -701,7 +701,7 @@ class Cursor(pygame.sprite.Sprite):
 def save_list_visual(screen):
     global SAVES
     pygame.draw.rect(screen, (4, 242, 255), [(50, 125), (425, 375)], 5)
-    font = pygame.font.Font('font/orbitron-medium.otf', 12)
+    font = pygame.font.Font('font/orbitron-bold.otf', 12)
     for n, line in enumerate(SAVES):
         text = font.render(f"Result 1st: {line[0]}, Result 2nd: {line[1]}", True, pygame.Color('cyan'))
         screen.blit(text, (170, (125 + n * 25) + 17 + n * 5))
@@ -749,7 +749,7 @@ def scores(screen):
             else:
                 text = 'NOT BAD'
                 color = (255, 255, 255)
-            font = pygame.font.Font('font/orbitron-medium.otf', 30)
+            font = pygame.font.Font('font/orbitron-bold.otf', 30)
             text = font.render(f"Result: {text}", True, color)
             screen.blit(text, (350, 230))
         if SECOND_COMPLETE:
@@ -762,7 +762,7 @@ def scores(screen):
             else:
                 text = 'NOT BAD'
                 color = (255, 255, 255)
-            font = pygame.font.Font('font/orbitron-medium.otf', 30)
+            font = pygame.font.Font('font/orbitron-bold.otf', 30)
             text = font.render(f"Result: {text}", True, color)
             screen.blit(text, (350, 350))
     elif LEVEL == 'second':
@@ -772,7 +772,7 @@ def scores(screen):
             color = (255, 7, 58)
         else:
             color = (255, 255, 255)
-        font = pygame.font.Font('font/orbitron-medium.otf', 30)
+        font = pygame.font.Font('font/orbitron-bold.otf', 30)
         text = font.render(f"{SECOND_SCORE}", True, color)
         screen.blit(text, (700, 50))
 # ----------------------------- Вспомогательные вещи ------------------------------------------------------
@@ -871,7 +871,7 @@ def main():
             save_list_visual(SCREEN)
             CURSOR.draw(SCREEN)
             if ERROR_TEXT:
-                font = pygame.font.Font('font/orbitron-medium.otf', 20)
+                font = pygame.font.Font('font/orbitron-bold.otf', 20)
                 text = font.render(f"{ERROR_TEXT}", True, pygame.Color('red'))
                 SCREEN.blit(text, (500, 470))
         else:
