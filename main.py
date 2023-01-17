@@ -719,6 +719,17 @@ def save_list_init():
 # ----------------------------- Штуки для сейвов ------------------------------------------------------
 
 
+# ----------------------------- Музлишко ------------------------------------------------------
+def music_control(chanel, track):
+    global LEVEL
+    pygame.mixer.init()
+    if LEVEL == 'menu' and (not chanel.get_busy()):
+        chanel.play(track)
+    elif (LEVEL != 'menu' and LEVEL != 'save') and chanel.get_busy():
+        chanel.fadeout(210)
+# ----------------------------- Музлишко ------------------------------------------------------
+
+
 # ----------------------------- Вспомогательные вещи ------------------------------------------------------
 def extras():
     global LOCK_GROUP, BTN_SPRITES
@@ -783,6 +794,13 @@ def main():
     pygame.init()
     pygame.display.set_caption('I wanna be a CODER (v.3.0.0)')
 
+    pygame.mixer.init()
+    pygame.mixer.set_num_channels(3)
+    chanel_for_music = pygame.mixer.Channel(1)
+    music_1 = pygame.mixer.Sound('game_data/music/I Really Want to Stay at Your House.mp3')
+    music_1.set_volume(0.5)
+
+    music_control(chanel_for_music, music_1)
     start_screen(SCREEN, CLOCK)
     extras()
     cur = Cursor()
@@ -804,6 +822,7 @@ def main():
 
             if event.type == pygame.QUIT:
                 running = False
+                pygame.mixer.quit()
 
             if LEVEL == 'menu':
                 if event.type == pygame.MOUSEMOTION:
@@ -859,6 +878,7 @@ def main():
                     btn.update(event.pos)
 
         if LEVEL == 'menu':
+            music_control(chanel_for_music, music_1)
             animation()
             BTN_SPRITES.draw(SCREEN)
             scores(SCREEN)
@@ -875,6 +895,7 @@ def main():
                 text = font.render(f"{ERROR_TEXT}", True, pygame.Color('red'))
                 SCREEN.blit(text, (500, 470))
         else:
+            music_control(chanel_for_music, music_1)
             ALL_SPRITES.draw(SCREEN)
             RETURN_SPRITE.draw(SCREEN)
             PLAYER.update()
