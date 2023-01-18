@@ -39,6 +39,7 @@ CLOCK = pygame.time.Clock()
 POINTS, SAVES = [], []
 PLAYER, KEY, CAMERA = None, None, None
 LEVEL = 'menu'
+CHANNEL, SOUND = None, None
 ALL_SPRITES, EFFECTS = pygame.sprite.Group(), pygame.sprite.Group()
 TILES_GROUP, DEADLY_TILES_GROUP = pygame.sprite.Group(), pygame.sprite.Group()
 GATES_GROUP = But = pygame.sprite.Group()
@@ -259,6 +260,7 @@ class Player(pygame.sprite.Sprite):
             shoot = Shoot(self.rect.right, (self.rect.top + 8), 'player_shoot', True, 7)
         PLAYER_SHOOT_GROUP.add(shoot)
         SHOOT_GROUP.remove(shoot)
+        SOUND.play('shoot')
 
     def update(self):
         global KEY, FIRST_SCORE, FIRST_COMPLETE, LEVEL, JUMP_POWER, GRAVITY, left, \
@@ -328,6 +330,7 @@ class Player(pygame.sprite.Sprite):
             for sprite in BONUS_SPRITES:
                 if pygame.sprite.collide_mask(self, sprite):
                     SECOND_SCORE += 5
+                    SOUND.play('coin')
                     sprite.kill()
             for sprite in WIN_DOORS:
                 if pygame.sprite.collide_mask(self, sprite):
@@ -720,13 +723,46 @@ def save_list_init():
 
 
 # ----------------------------- Музлишко ------------------------------------------------------
-def music_control(chanel, track):
-    global LEVEL
-    pygame.mixer.init()
-    if LEVEL == 'menu' and (not chanel.get_busy()):
-        chanel.play(track)
-    elif (LEVEL != 'menu' and LEVEL != 'save') and chanel.get_busy():
-        chanel.fadeout(210)
+class Sound_Control:
+    def __init__(self):
+        self.check = False
+        self.dict = {'coin': pygame.mixer.Sound('game_data/sound/coin.wav'),
+                     # 'click': pygame.mixer.Sound(''),
+                     # 'death': pygame.mixer.Sound(''),
+                     # 'boom': pygame.mixer.Sound(''),
+                     # 'bug_death': pygame.mixer.Sound(''),
+                     'shoot': pygame.mixer.Sound('game_data/sound/hero_shot.wav')
+                     # 'bug_shoot': pygame.mixer.Sound(''),
+                     # 'boss_awoken': pygame.mixer.Sound(''),
+                     # 'pre_attack': pygame.mixer.Sound(''),
+                     # 'saw_attack': pygame.mixer.Sound(''),
+                     # 'bolt_attack': pygame.mixer.Sound('')
+                     }
+
+    def music_control(self):
+        global LEVEL
+        pygame.mixer.init()
+        if LEVEL == 'menu' and pygame.mixer.music.get_busy() and (self.check == True):
+            pygame.mixer.music.fadeout(210)
+            self.check = False
+        elif (LEVEL != 'menu' and LEVEL != 'save') and pygame.mixer.music.get_busy() and (self.check == False):
+            pygame.mixer.music.fadeout(210)
+            self.check = True
+        elif LEVEL == 'menu' and (not pygame.mixer.music.get_busy()):
+            pygame.mixer.music.load('game_data/music/main_menu.mp3')
+            pygame.mixer.music.set_volume(0.5)
+            pygame.mixer.music.play()
+        elif (LEVEL != 'menu' and LEVEL != 'save') and (not pygame.mixer.music.get_busy()):
+            pygame.mixer.music.load('game_data/music/level.ogg')
+            pygame.mixer.music.set_volume(0.3)
+            pygame.mixer.music.play(10)
+
+    def play(self, sound):
+        global CHANNEL
+        pygame.mixer.init()
+        CHANNEL.play(self.dict[sound])
+
+
 # ----------------------------- Музлишко ------------------------------------------------------
 
 
@@ -790,17 +826,16 @@ def scores(screen):
 
 
 def main():
-    global FPS, LEVEL, PLAYER, KEY, FIRST_SCORE, left, right, up
+    global FPS, LEVEL, PLAYER, KEY, FIRST_SCORE, left, right, up, CHANNEL, SOUND
     pygame.init()
     pygame.display.set_caption('I wanna be a CODER (v.3.0.0)')
 
-    pygame.mixer.init()
-    pygame.mixer.set_num_channels(3)
-    chanel_for_music = pygame.mixer.Channel(1)
-    music_1 = pygame.mixer.Sound('game_data/music/I Really Want to Stay at Your House.mp3')
-    music_1.set_volume(0.5)
+    SOUND = Sound_Control()
+    SOUND.music_control()
 
-    music_control(chanel_for_music, music_1)
+    pygame.mixer.set_num_channels(2)
+    CHANNEL = pygame.mixer.Channel(0)
+
     start_screen(SCREEN, CLOCK)
     extras()
     cur = Cursor()
@@ -878,7 +913,7 @@ def main():
                     btn.update(event.pos)
 
         if LEVEL == 'menu':
-            music_control(chanel_for_music, music_1)
+            SOUND.music_control()
             animation()
             BTN_SPRITES.draw(SCREEN)
             scores(SCREEN)
@@ -895,7 +930,7 @@ def main():
                 text = font.render(f"{ERROR_TEXT}", True, pygame.Color('red'))
                 SCREEN.blit(text, (500, 470))
         else:
-            music_control(chanel_for_music, music_1)
+            SOUND.music_control()
             ALL_SPRITES.draw(SCREEN)
             RETURN_SPRITE.draw(SCREEN)
             PLAYER.update()
