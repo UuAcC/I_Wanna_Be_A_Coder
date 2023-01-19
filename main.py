@@ -39,7 +39,7 @@ CLOCK = pygame.time.Clock()
 POINTS, SAVES = [], []
 PLAYER, KEY, CAMERA = None, None, None
 LEVEL = 'menu'
-CHANNEL, SOUND = None, None
+CHANNEL, SOUND, BOOM_CHANNEL, BUG_CHANNEL = None, None, None, None
 ALL_SPRITES, EFFECTS = pygame.sprite.Group(), pygame.sprite.Group()
 TILES_GROUP, DEADLY_TILES_GROUP = pygame.sprite.Group(), pygame.sprite.Group()
 GATES_GROUP = But = pygame.sprite.Group()
@@ -171,6 +171,7 @@ class Shoot(pygame.sprite.Sprite):
         for sprite in TILES_GROUP:
             if pygame.sprite.collide_mask(self, sprite):
                 self.kill()
+                SOUND.play('boom')
                 if self.tile == 'player_shoot':
                     boom = AnimatedSprite(load_image('player_boom.png'), 7, 1, self.rect.x / 25,
                                           (self.rect.y - 9) / 25, 7, True)
@@ -762,20 +763,21 @@ class Sound_Control:
     def __init__(self):
         self.check = False
         self.dict = {'coin': pygame.mixer.Sound('game_data/sound/coin.wav'),
-                     'click': pygame.mixer.Sound('game_data/sound/pre_click.wav'),
+                     'click': pygame.mixer.Sound('game_data/sound/click.wav'),
                      'death': pygame.mixer.Sound('game_data/sound/death.wav'),
-                     # 'boom': pygame.mixer.Sound(''),
+                     'boom': pygame.mixer.Sound('game_data/sound/zap.wav'),
                      'bug_death': pygame.mixer.Sound('game_data/sound/bug_death.wav'),
                      'shoot': pygame.mixer.Sound('game_data/sound/hero_shot.wav'),
                      'bug_shoot': pygame.mixer.Sound('game_data/sound/bug_shot.wav'),
-                     # 'boss_awoken': pygame.mixer.Sound(''),
-                     # 'pre_attack': pygame.mixer.Sound(''),
+                     'boss_awoken': pygame.mixer.Sound('game_data/sound/awakening.wav'),
+                     'pre_attack': pygame.mixer.Sound('game_data/sound/pre_attack.wav'),
                      'saw_attack': pygame.mixer.Sound('game_data/sound/saw.wav'),
                      'bolt_attack': pygame.mixer.Sound('game_data/sound/thunder.wav')
                      }
-        self.dict['bug_shoot'].set_volume(0.5)
+        self.dict['bug_shoot'].set_volume(0.4)
         self.dict['click'].set_volume(0.3)
         self.dict['shoot'].set_volume(0.6)
+        self.dict['boom'].set_volume(0.2)
 
     def music_control(self):
         global LEVEL
@@ -783,22 +785,34 @@ class Sound_Control:
         if LEVEL == 'menu' and pygame.mixer.music.get_busy() and self.check:
             pygame.mixer.music.fadeout(210)
             self.check = False
-        elif (LEVEL != 'menu' and LEVEL != 'save') and pygame.mixer.music.get_busy() and (not self.check):
+        elif (LEVEL == 'first' or LEVEL == 'second') and pygame.mixer.music.get_busy() and (not self.check):
+            pygame.mixer.music.fadeout(210)
+            self.check = True
+        elif LEVEL == 'boss' and pygame.mixer.music.get_busy() and (not self.check):
             pygame.mixer.music.fadeout(210)
             self.check = True
         elif LEVEL == 'menu' and (not pygame.mixer.music.get_busy()):
             pygame.mixer.music.load('game_data/music/main_menu.wav')
             pygame.mixer.music.set_volume(0.5)
             pygame.mixer.music.play()
-        elif (LEVEL != 'menu' and LEVEL != 'save') and (not pygame.mixer.music.get_busy()):
+        elif (LEVEL == 'first' or LEVEL == 'second') and (not pygame.mixer.music.get_busy()):
             pygame.mixer.music.load('game_data/music/level.wav')
             pygame.mixer.music.set_volume(0.3)
             pygame.mixer.music.play(10)
+        # elif LEVEL == 'boss' and (not pygame.mixer.music.get_busy()):
+        #     pygame.mixer.music.load('game_data/music/boss.wav')
+        #     pygame.mixer.music.set_volume(0.5)
+        #     pygame.mixer.music.play()
 
     def play(self, sound):
-        global CHANNEL
+        global CHANNEL, BOOM_CHANNEL, BUG_CHANNEL
         pygame.mixer.init()
-        CHANNEL.play(self.dict[sound])
+        if sound == 'boom':
+            BOOM_CHANNEL.play(self.dict[sound])
+        elif sound == 'bug_shoot':
+            BUG_CHANNEL.play(self.dict[sound])
+        else:
+            CHANNEL.play(self.dict[sound])
 
 
 # ----------------------------- Музлишко ------------------------------------------------------
@@ -866,15 +880,17 @@ def scores(screen):
 
 
 def main():
-    global FPS, LEVEL, PLAYER, KEY, FIRST_SCORE, left, right, up, CHANNEL, SOUND
+    global FPS, LEVEL, PLAYER, KEY, FIRST_SCORE, left, right, up, CHANNEL, SOUND, BOOM_CHANNEL, BUG_CHANNEL
     pygame.init()
     pygame.display.set_caption('I wanna be a CODER (v.3.0.0)')
 
     SOUND = Sound_Control()
     SOUND.music_control()
 
-    pygame.mixer.set_num_channels(2)
+    pygame.mixer.set_num_channels(3)
     CHANNEL = pygame.mixer.Channel(0)
+    BOOM_CHANNEL = pygame.mixer.Channel(1)
+    BUG_CHANNEL = pygame.mixer.Channel(2)
 
     start_screen(SCREEN, CLOCK)
     extras()
