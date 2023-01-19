@@ -65,6 +65,8 @@ TILE_IMAGES = {
 PLAYER_IMAGE = [load_image('ufo.png'), load_image('r_rob.png')]
 FIRST_COMPLETE, SECOND_COMPLETE = False, False
 tile_width = tile_height = 25
+
+
 # ----------------------------- Глобальные переменные --------------------------------------
 
 # ----------------------------- Камера --------------------------------------
@@ -86,6 +88,8 @@ class Camera:
     def update(self, target):
         self.dx = -(target.rect.x + target.rect.w // 2 - WIDTH // 2)
         self.dy = -(target.rect.y + target.rect.h // 2 - HEIGHT // 2)
+
+
 # ----------------------------- Камера --------------------------------------
 
 
@@ -204,6 +208,7 @@ class Enemy(pygame.sprite.Sprite):
                           (self.rect.y + 5), 'enemy_shoot',
                           self.reverse, (self.bullet_speed if self.reverse else -self.bullet_speed))
             SHOOT_GROUP.add(shoot)
+            SOUND.play('bug_shoot')
             self.count = 0
         for bullet in PLAYER_SHOOT_GROUP:
             if pygame.sprite.collide_mask(self, bullet):
@@ -214,7 +219,9 @@ class Enemy(pygame.sprite.Sprite):
                 EFFECTS.add(boom)
                 bullet.kill()
         if self.hp == 0:
+            SOUND.play('bug_death')
             self.kill()
+
 
 # ----------------------------- Все объекты --------------------------------------
 
@@ -272,7 +279,7 @@ class Player(pygame.sprite.Sprite):
             elif KEY == pygame.K_w:
                 self.rect.y -= FPS // 12
             for sprite in GATES_GROUP:
-                if PLAYER_GROUP.sprites()[0].rect.colliderect(sprite.rect):
+                if self.rect.left == sprite.rect.left:
                     if sprite in WIN_DOORS.sprites():
                         FIRST_COMPLETE = True
                         victory_screen(SCREEN, CLOCK)
@@ -286,6 +293,8 @@ class Player(pygame.sprite.Sprite):
                         FIRST_SCORE -= 1
             for sprite in TILES_GROUP:
                 if pygame.sprite.collide_mask(self, sprite):
+                    pygame.mixer.music.stop()
+                    SOUND.play('death')
                     death_screen(SCREEN, CLOCK)
                     for elem in ALL_SPRITES:
                         elem.kill()
@@ -319,6 +328,8 @@ class Player(pygame.sprite.Sprite):
                         elem.kill()
                     KEY = None
                     left = right = up = False
+                    pygame.mixer.music.pause()
+                    SOUND.play('death')
                     death_screen(SCREEN, CLOCK)
             for sprite in SHOOT_GROUP:
                 if pygame.sprite.collide_mask(self, sprite):
@@ -326,6 +337,8 @@ class Player(pygame.sprite.Sprite):
                         elem.kill()
                     KEY = None
                     left = right = up = False
+                    pygame.mixer.music.pause()
+                    SOUND.play('death')
                     death_screen(SCREEN, CLOCK)
             for sprite in BONUS_SPRITES:
                 if pygame.sprite.collide_mask(self, sprite):
@@ -340,6 +353,8 @@ class Player(pygame.sprite.Sprite):
                         elem.kill()
                     KEY = None
                     return
+
+
 # ----------------------------- Игрок --------------------------------------
 
 
@@ -411,6 +426,8 @@ def generate_level(level):
             # elif level[y][x] == 'B':
             #
     return PLAYER, x, y
+
+
 # ----------------------------- Создание уровней --------------------------------------
 
 
@@ -465,11 +482,11 @@ class Button(pygame.sprite.Sprite):
                 if cur:
                     try:
                         ERROR_TEXT = False
-                        if FIRST_SCORE is not None:
+                        if FIRST_COMPLETE:
                             SAVES[cur - 1][0] = FIRST_SCORE
                         else:
                             SAVES[cur - 1][0] = '???'
-                        if SECOND_SCORE is not None:
+                        if SECOND_COMPLETE:
                             SAVES[cur - 1][1] = f'{SECOND_SCORE} \n'
                         else:
                             SAVES[cur - 1][1] = f'??? \n'
@@ -497,6 +514,8 @@ class Button(pygame.sprite.Sprite):
         else:
             if self.image in Button.c_images:
                 self.image = Button.images[Button.c_images.index(self.image)]
+
+
 # ----------------------------- Кнопки главного меню --------------------------------------
 
 
@@ -522,6 +541,8 @@ class ReturnBtn(pygame.sprite.Sprite):
                 KEY = None
         else:
             self.image = load_image('return_btn.png')
+
+
 # ----------------------------- Анимация внизу окна ---------------------------------------
 
 
@@ -547,6 +568,8 @@ def animation():
     for p in POINTS:
         animate(SCREEN, p)
         p.update()
+
+
 # ----------------------------- Анимация внизу окна -----------------------------------------
 
 # ----------------------------- Заставка, экран смерти и окна правил --------------------------------------
@@ -589,6 +612,7 @@ def death_screen(screen, clock):
                     generate_level(load_level('_platformer_level.txt'))
                     CAMERA = Camera()
                     SECOND_SCORE -= 1
+                    pygame.mixer.music.unpause()
                     return
                 else:
                     LEVEL = 'menu'
@@ -666,9 +690,9 @@ def rules_of_boss(screen, clock):
                 terminate()
             elif event.type == pygame.KEYDOWN or \
                     event.type == pygame.MOUSEBUTTONDOWN:
-                if FIRST_SCORE > 25:
+                if FIRST_SCORE > 1:
                     DIFF = 'easy'
-                elif FIRST_SCORE < -25:
+                elif FIRST_SCORE < -1:
                     DIFF = 'hard'
                 else:
                     DIFF = 'normal'
@@ -683,6 +707,8 @@ def rules_of_boss(screen, clock):
         animation()
         pygame.display.flip()
         clock.tick(FPS)
+
+
 # ----------------------------- Заставка, экран смерти и окна правил --------------------------------------
 
 
@@ -719,6 +745,8 @@ def save_list_init():
         t = [line[0], line[1]]
         SAVES.append(t)
     table.close()
+
+
 # ----------------------------- Штуки для сейвов ------------------------------------------------------
 
 
@@ -728,16 +756,18 @@ class Sound_Control:
         self.check = False
         self.dict = {'coin': pygame.mixer.Sound('game_data/sound/coin.wav'),
                      # 'click': pygame.mixer.Sound(''),
-                     # 'death': pygame.mixer.Sound(''),
+                     'death': pygame.mixer.Sound('game_data/sound/death.wav'),
                      # 'boom': pygame.mixer.Sound(''),
-                     # 'bug_death': pygame.mixer.Sound(''),
-                     'shoot': pygame.mixer.Sound('game_data/sound/hero_shot.wav')
-                     # 'bug_shoot': pygame.mixer.Sound(''),
+                     'bug_death': pygame.mixer.Sound('game_data/sound/bug_death.wav'),
+                     'shoot': pygame.mixer.Sound('game_data/sound/hero_shot.wav'),
+                     'bug_shoot': pygame.mixer.Sound('game_data/sound/bug_shot.wav')
                      # 'boss_awoken': pygame.mixer.Sound(''),
                      # 'pre_attack': pygame.mixer.Sound(''),
                      # 'saw_attack': pygame.mixer.Sound(''),
                      # 'bolt_attack': pygame.mixer.Sound('')
                      }
+        self.dict['bug_shoot'].set_volume(0.5)
+        self.dict['shoot'].set_volume(0.6)
 
     def music_control(self):
         global LEVEL
@@ -749,11 +779,11 @@ class Sound_Control:
             pygame.mixer.music.fadeout(210)
             self.check = True
         elif LEVEL == 'menu' and (not pygame.mixer.music.get_busy()):
-            pygame.mixer.music.load('game_data/music/main_menu.mp3')
+            pygame.mixer.music.load('game_data/music/main_menu.wav')
             pygame.mixer.music.set_volume(0.5)
             pygame.mixer.music.play()
         elif (LEVEL != 'menu' and LEVEL != 'save') and (not pygame.mixer.music.get_busy()):
-            pygame.mixer.music.load('game_data/music/level.ogg')
+            pygame.mixer.music.load('game_data/music/level.wav')
             pygame.mixer.music.set_volume(0.3)
             pygame.mixer.music.play(10)
 
@@ -787,10 +817,10 @@ def scores(screen):
     global FIRST_COMPLETE, FIRST_SCORE, SECOND_COMPLETE, SECOND_SCORE, LEVEL
     if LEVEL == 'menu':
         if FIRST_COMPLETE:
-            if FIRST_SCORE > 25:
+            if FIRST_SCORE > 1:
                 color = (57, 255, 20)
                 text = 'GOOD'
-            elif FIRST_SCORE < -25:
+            elif FIRST_SCORE < -1:
                 text = 'BAD'
                 color = (255, 7, 58)
             else:
@@ -822,6 +852,8 @@ def scores(screen):
         font = pygame.font.Font('font/orbitron-bold.otf', 30)
         text = font.render(f"{SECOND_SCORE}", True, color)
         screen.blit(text, (700, 50))
+
+
 # ----------------------------- Вспомогательные вещи ------------------------------------------------------
 
 
