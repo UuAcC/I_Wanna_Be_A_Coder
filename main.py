@@ -465,20 +465,25 @@ class Button(pygame.sprite.Sprite):
             if self.image in Button.images:
                 self.image = Button.c_images[Button.images.index(self.image)]
             if button == 1 and self.rect.topleft == (100, 200):
+                SOUND.play('click')
                 LEVEL = 'first'
                 generate_level(load_level('_just_run_level.txt'))
                 rules_of_first(SCREEN, CLOCK)
             elif button == 1 and self.rect.topleft == (100, 320):
+                SOUND.play('click')
                 LEVEL = 'second'
                 generate_level(load_level('_platformer_level.txt'))
                 rules_of_second(SCREEN, CLOCK)
             elif button == 1 and self.rect.topleft == (100, 440) and (FIRST_COMPLETE and SECOND_COMPLETE):
+                SOUND.play('click')
                 LEVEL = 'boss'
                 generate_level(load_level('_boss_button.txt'))
                 rules_of_boss(SCREEN, CLOCK)
             elif button == 1 and self.rect.topleft == (700, 475):
+                SOUND.play('click')
                 LEVEL = 'save'
             elif button == 1 and self.rect.topleft == (575, 125):
+                SOUND.play('click')
                 if cur:
                     try:
                         ERROR_TEXT = False
@@ -499,6 +504,7 @@ class Button(pygame.sprite.Sprite):
                     except ValueError:
                         ERROR_TEXT = 'ERROR: smth broke'
             elif button == 1 and self.rect.topleft == (575, 225):
+                SOUND.play('click')
                 if cur:
                     try:
                         ERROR_TEXT = False
@@ -534,6 +540,7 @@ class ReturnBtn(pygame.sprite.Sprite):
         if self.rect.x <= x <= self.rect.x + 50 and self.rect.y <= y <= self.rect.y + 50:
             self.image = load_image('return_btn_clicked.png')
             if button == 1:
+                SOUND.play('click')
                 LEVEL = 'menu'
                 ERROR_TEXT = False
                 for elem in ALL_SPRITES:
@@ -755,27 +762,28 @@ class Sound_Control:
     def __init__(self):
         self.check = False
         self.dict = {'coin': pygame.mixer.Sound('game_data/sound/coin.wav'),
-                     # 'click': pygame.mixer.Sound(''),
+                     'click': pygame.mixer.Sound('game_data/sound/pre_click.wav'),
                      'death': pygame.mixer.Sound('game_data/sound/death.wav'),
                      # 'boom': pygame.mixer.Sound(''),
                      'bug_death': pygame.mixer.Sound('game_data/sound/bug_death.wav'),
                      'shoot': pygame.mixer.Sound('game_data/sound/hero_shot.wav'),
-                     'bug_shoot': pygame.mixer.Sound('game_data/sound/bug_shot.wav')
+                     'bug_shoot': pygame.mixer.Sound('game_data/sound/bug_shot.wav'),
                      # 'boss_awoken': pygame.mixer.Sound(''),
                      # 'pre_attack': pygame.mixer.Sound(''),
-                     # 'saw_attack': pygame.mixer.Sound(''),
-                     # 'bolt_attack': pygame.mixer.Sound('')
+                     'saw_attack': pygame.mixer.Sound('game_data/sound/saw.wav'),
+                     'bolt_attack': pygame.mixer.Sound('game_data/sound/thunder.wav')
                      }
         self.dict['bug_shoot'].set_volume(0.5)
+        self.dict['click'].set_volume(0.3)
         self.dict['shoot'].set_volume(0.6)
 
     def music_control(self):
         global LEVEL
         pygame.mixer.init()
-        if LEVEL == 'menu' and pygame.mixer.music.get_busy() and (self.check == True):
+        if LEVEL == 'menu' and pygame.mixer.music.get_busy() and self.check:
             pygame.mixer.music.fadeout(210)
             self.check = False
-        elif (LEVEL != 'menu' and LEVEL != 'save') and pygame.mixer.music.get_busy() and (self.check == False):
+        elif (LEVEL != 'menu' and LEVEL != 'save') and pygame.mixer.music.get_busy() and (not self.check):
             pygame.mixer.music.fadeout(210)
             self.check = True
         elif LEVEL == 'menu' and (not pygame.mixer.music.get_busy()):
