@@ -60,7 +60,8 @@ TILE_IMAGES = {
     'win_gate': load_image('win_gate.png'),
     'enemy': load_image('enemy.png'),
     'enemy_shoot': load_image('enemy_shoot.png'),
-    'player_shoot': load_image('player_shoot.png')
+    'player_shoot': load_image('player_shoot.png'),
+    'skull': [load_image('skull_rev.png'), load_image('skull.png')]
 }
 PLAYER_IMAGE = [load_image('ufo.png'), load_image('r_rob.png')]
 FIRST_COMPLETE, SECOND_COMPLETE = False, False
@@ -135,7 +136,7 @@ class Tile(pygame.sprite.Sprite):
                 self.image = pygame.transform.flip(random.choice(TILE_IMAGES[tile_type]), False, True)
             else:
                 self.image = random.choice(TILE_IMAGES[tile_type])
-        elif tile_type == 'gate':
+        elif tile_type == 'gate' or tile_type == 'skull':
             if reverse:
                 self.image = TILE_IMAGES[tile_type][0]
             else:
@@ -270,9 +271,9 @@ class Player(pygame.sprite.Sprite):
         SHOOT_GROUP.remove(shoot)
         SOUND.play('shoot')
 
-    def update(self):
+    def update(self, e=False):
         global KEY, FIRST_SCORE, FIRST_COMPLETE, LEVEL, JUMP_POWER, GRAVITY, left, \
-            right, up, SECOND_SCORE, SECOND_COMPLETE
+            right, up, SECOND_SCORE, SECOND_COMPLETE, But
         if LEVEL == 'first':
             self.rect.x += FPS // 20
             if KEY == pygame.K_s:
@@ -346,6 +347,11 @@ class Player(pygame.sprite.Sprite):
                     SECOND_SCORE += 5
                     SOUND.play('coin')
                     sprite.kill()
+            for sprite in But:
+                if pygame.sprite.collide_mask(self, sprite) and e:
+                    for elem in ALL_SPRITES:
+                        elem.kill()
+                    generate_level(load_level('_boss_arena.txt'))
             for sprite in WIN_DOORS:
                 if pygame.sprite.collide_mask(self, sprite):
                     SECOND_COMPLETE = True
@@ -371,22 +377,22 @@ def generate_level(level):
                 Tile('wall', x, y)
             elif level[y][x] == '!':
                 tile = Tile('vert_horn', x, y)
-                if LEVEL == 'second':
+                if (LEVEL == 'second') or ('boss' in LEVEL):
                     DEADLY_TILES_GROUP.add(tile)
                     TILES_GROUP.remove(tile)
             elif level[y][x] == '?':
                 tile = Tile('vert_horn', x, y, True)
-                if LEVEL == 'second':
+                if (LEVEL == 'second') or ('boss' in LEVEL):
                     DEADLY_TILES_GROUP.add(tile)
                     TILES_GROUP.remove(tile)
             elif level[y][x] == '=':
                 tile = Tile('hor_horn', x, y)
-                if LEVEL == 'second':
+                if (LEVEL == 'second') or ('boss' in LEVEL):
                     DEADLY_TILES_GROUP.add(tile)
                     TILES_GROUP.remove(tile)
             elif level[y][x] == '-':
                 tile = Tile('hor_horn', x, y, True)
-                if LEVEL == 'second':
+                if (LEVEL == 'second') or ('boss' in LEVEL):
                     DEADLY_TILES_GROUP.add(tile)
                     TILES_GROUP.remove(tile)
             elif level[y][x] == '$':
@@ -424,8 +430,10 @@ def generate_level(level):
             elif level[y][x] == '8':
                 tile = Enemy(x, y)
                 ENEMY_GROUP.add(tile)
-            # elif level[y][x] == 'B':
-            #
+            elif level[y][x] == 'B':
+                boss = Tile('skull', x, y)
+                DEADLY_TILES_GROUP.add(boss)
+                TILES_GROUP.remove(boss)
     return PLAYER, x, y
 
 
@@ -477,7 +485,7 @@ class Button(pygame.sprite.Sprite):
                 rules_of_second(SCREEN, CLOCK)
             elif button == 1 and self.rect.topleft == (100, 440) and (FIRST_COMPLETE and SECOND_COMPLETE):
                 SOUND.play('click')
-                LEVEL = 'boss'
+                LEVEL = 'boss_but'
                 generate_level(load_level('_boss_button.txt'))
                 rules_of_boss(SCREEN, CLOCK)
             elif button == 1 and self.rect.topleft == (700, 475):
@@ -793,11 +801,11 @@ class Sound_Control:
             self.check = True
         elif LEVEL == 'menu' and (not pygame.mixer.music.get_busy()):
             pygame.mixer.music.load('game_data/music/main_menu.wav')
-            pygame.mixer.music.set_volume(0.5)
+            pygame.mixer.music.set_volume(0.65)
             pygame.mixer.music.play()
         elif (LEVEL == 'first' or LEVEL == 'second') and (not pygame.mixer.music.get_busy()):
             pygame.mixer.music.load('game_data/music/level.wav')
-            pygame.mixer.music.set_volume(0.3)
+            pygame.mixer.music.set_volume(0.65)
             pygame.mixer.music.play(10)
         # elif LEVEL == 'boss' and (not pygame.mixer.music.get_busy()):
         #     pygame.mixer.music.load('game_data/music/boss.wav')
@@ -945,7 +953,10 @@ def main():
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     btn.update(event.pos, event.button)
 
-            elif LEVEL == 'second' or LEVEL == 'boss':
+            elif (LEVEL == 'second') or ('boss' in LEVEL):
+                if LEVEL == 'boss_but':
+                    if event.type == pygame.KEYDOWN and event.key == pygame.K_e:
+                        PLAYER.update(True)
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_a:
                     KEY = event.key
                     left = True
@@ -994,12 +1005,12 @@ def main():
                 CAMERA.update(PLAYER)
                 for sprite in ALL_SPRITES:
                     CAMERA.apply(sprite)
-            if LEVEL == 'second' or LEVEL == 'boss':
+            if LEVEL == 'second' or ('boss' in LEVEL):
                 for m in BONUS_SPRITES:
                     m.update()
                 for e in EFFECTS:
                     e.update()
-                if LEVEL == 'boss':
+                if 'boss' in LEVEL:
                     for b in But:
                         b.update()
                 for s in DEADLY_TILES_GROUP:
