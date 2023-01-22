@@ -33,12 +33,13 @@ def load_level(filename):
 FPS = 70
 WIDTH = 800
 HEIGHT = 600
-BTN_SPRITES, SAVE_BTN_SPRITES, CURSOR, BOSS = pygame.sprite.Group(), pygame.sprite.Group(), \
-                                              pygame.sprite.Group(), pygame.sprite.Group()
+BTN_SPRITES, SAVE_BTN_SPRITES, CURSOR, BOSS, INTERFACE = pygame.sprite.Group(), pygame.sprite.Group(),\
+                                                         pygame.sprite.Group(), pygame.sprite.Group(),\
+                                                         pygame.sprite.Group()
 SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
 CLOCK = pygame.time.Clock()
 POINTS, SAVES = [], []
-PLAYER, KEY, CAMERA = None, None, None
+PLAYER, KEY, CAMERA, SKULL = None, None, None, None
 LEVEL = 'menu'
 CHANNEL, SOUND, BOOM_CHANNEL, BUG_CHANNEL, ATTACK_CHANNEL = None, None, None, None, None
 ALL_SPRITES, EFFECTS = pygame.sprite.Group(), pygame.sprite.Group()
@@ -97,17 +98,19 @@ class Camera:
 
 # ----------------------------- Все объекты --------------------------------------
 class AnimatedSprite(pygame.sprite.Sprite):
-    def __init__(self, sheet, columns, rows, pos_x, pos_y, count, extra=False, bolt=False):
+    def __init__(self, sheet, columns, rows, pos_x, pos_y, count, extra=False, bolt=False, saw=False):
         super().__init__(BONUS_SPRITES, ALL_SPRITES)
         self.frames = []
         self.cut_sheet(sheet, columns, rows)
         self.cur_frame = 0
         self.image = self.frames[self.cur_frame]
-        # if diff:
-        #     self.image = pygame.transform.scale(self.image, (100, 100))
         if bolt:
             rect = pygame.Rect((12, 0), (26, 120))
             self.rect = rect.move(pos_x, pos_y)
+        elif saw:
+            if DIFF == 'hard':
+                self.image = pygame.transform.scale(self.image, (75, 75))
+            self.rect = self.image.get_rect().move(pos_x, pos_y)
         else:
             self.rect = self.image.get_rect().move(
                 tile_width * pos_x, tile_height * pos_y)
@@ -115,6 +118,7 @@ class AnimatedSprite(pygame.sprite.Sprite):
         self.bufer = count
         self.extra = extra
         self.bolt = bolt
+        self.saw = saw
         self.mask = pygame.mask.from_surface(self.image)
 
     def cut_sheet(self, sheet, columns, rows):
@@ -131,13 +135,10 @@ class AnimatedSprite(pygame.sprite.Sprite):
         if self.count == 0:
             self.cur_frame = (self.cur_frame + 1) % len(self.frames)
             self.image = self.frames[self.cur_frame]
+            if self.saw and DIFF == 'hard':
+                self.image = pygame.transform.scale(self.image, (75, 75))
             if self.bolt:
-                rect = pygame.Rect(self.rect.topleft,
-                                   (30,
-                                    (((120 + 120 * self.cur_frame) if self.cur_frame > 6 else 1)
-                                     if self.cur_frame < 8 else 600)))
-                self.rect = rect
-            #     self.image = pygame.transform.scale(self.image, (100, 100))
+                self.mask = pygame.mask.from_surface(self.image)
             self.count = self.bufer
         if self.extra and self.image == self.frames[-1]:
             self.kill()
@@ -203,18 +204,21 @@ class Shoot(pygame.sprite.Sprite):
 class Boss(pygame.sprite.Sprite):
     def __init__(self, pos_x, pos_y):
         super().__init__(BOSS, ALL_SPRITES)
+        self.saw_1, self.saw_2, self.start_pos_1, self.start_pos_2 = None, None, None, None
         self.image = TILE_IMAGES['skull'][1]
         self.rect = self.image.get_rect().move(
             tile_width * pos_x, tile_height * pos_y)
         self.mask = pygame.mask.from_surface(self.image)
         self.hp = 100
         self.process = ''
-        self.attacks = ['t']
+        self.attacks = ['s', 't']
         self.count = 500
+        self.check = False
 
     def update(self):
-        global DIFF
+        global DIFF, KEY
         self.count += 1
+        SOUND.music_control()
         for bullet in PLAYER_SHOOT_GROUP:
             if pygame.sprite.collide_mask(self, bullet):
                 self.hp -= 1
@@ -224,35 +228,72 @@ class Boss(pygame.sprite.Sprite):
                 EFFECTS.add(boom)
                 bullet.kill()
         if self.hp == 0:
-            pass
+            SOUND.music_control(True)
+            victory_screen(SCREEN, CLOCK)
+            for elem in ALL_SPRITES:
+                elem.kill()
+            KEY = None
+            return
         if self.count == 700:
             attack = random.choice(self.attacks)
+            if random.randint(0, 1) == 1:
+                SOUND.play('pre_attack')
             if attack == 't':
                 self.process = 't'
             if attack == 's':
+                self.saw_1 = AnimatedSprite(load_image('saw.png'), 4, 1, 25, 25, 7, False, False, True)
+                x, y = (700 if DIFF == 'hard' else 725), (500 if DIFF == 'hard' else 525)
+                self.saw_2 = AnimatedSprite(load_image('saw.png'), 4, 1, x, y, 7, False, False, True)
+                BONUS_SPRITES.remove(self.saw_1)
+                ATTACK.add(self.saw_1)
+                BONUS_SPRITES.remove(self.saw_2)
+                ATTACK.add(self.saw_2)
+                self.check = False
+                SOUND.play('saw_attack')
                 self.process = 's'
             self.count = 0
         if self.process == 't':
             if DIFF == 'hard':
-                a = 60
-            elif DIFF == 'normal':
                 a = 90
-            else:
+            elif DIFF == 'normal':
                 a = 120
+            else:
+                a = 150
             if self.count % a == 0:
                 x = random.randint(25, 725)
                 self.thunder_attack(x)
                 SOUND.play('bolt_attack')
         if self.process == 's':
-            self.saw_attack()
+            if DIFF == 'hard':
+                a = 7
+            elif DIFF == 'normal':
+                a = 6
+            else:
+                a = 5
+            self.saw_attack(a, self.saw_1, self.saw_2)
 
-    def saw_attack(self):
-        saw_1 = AnimatedSprite(load_image('saw.png'), 4, 1, 1, 1, 7, False, (True if DIFF == 'hard' else False))
-        saw_2 = AnimatedSprite(load_image('saw.png'), 4, 1, 28, 20, 7, False, (True if DIFF == 'hard' else False))
-        BONUS_SPRITES.remove(saw_1)
-        ATTACK.add(saw_1)
-        BONUS_SPRITES.remove(saw_2)
-        ATTACK.add(saw_2)
+    def saw_attack(self, a, saw_1, saw_2):
+        if not self.check:
+            if saw_1.rect.bottom < 575 and saw_2.rect.top > 25:
+                saw_1.rect.y += a
+                saw_2.rect.y -= a
+            else:
+                if saw_1.rect.right < 775 and saw_2.rect.left > 25:
+                    saw_1.rect.x += a
+                    saw_2.rect.x -= a
+                else:
+                    self.check = True
+        if self.check:
+            if saw_2.rect.bottom < 575 and saw_1.rect.top > 25:
+                saw_2.rect.y += a
+                saw_1.rect.y -= a
+            else:
+                if saw_2.rect.right < 775 and saw_1.rect.left > 25:
+                    saw_2.rect.x += a
+                    saw_1.rect.x -= a
+                else:
+                    saw_2.kill()
+                    saw_1.kill()
 
     def thunder_attack(self, x):
         bolt = AnimatedSprite(load_image('bolt.png'), 11, 1, x, 25, 5, True, True)
@@ -306,7 +347,7 @@ class Enemy(pygame.sprite.Sprite):
 # ----------------------------- Игрок --------------------------------------
 class Player(pygame.sprite.Sprite):
     def __init__(self, pos_x, pos_y):
-        global LEVEL
+        global LEVEL, SECOND_SCORE
         super().__init__(PLAYER_GROUP, ALL_SPRITES)
         if LEVEL == 'first':
             self.image = PLAYER_IMAGE[0]
@@ -314,6 +355,16 @@ class Player(pygame.sprite.Sprite):
             self.image = PLAYER_IMAGE[1]
         self.yvel = 0
         self.xvel = 0
+        if 'boss' in LEVEL:
+            if SECOND_SCORE > 15:
+                self.hp = 3
+            elif SECOND_SCORE < 0:
+                self.hp = 1
+            else:
+                self.hp = 2
+        else:
+            self.hp = 1
+        self.no_damage = 0
         self.startX = pos_x
         self.startY = pos_y
         self.reverse = False
@@ -377,6 +428,8 @@ class Player(pygame.sprite.Sprite):
                         elem.kill()
                     KEY = None
         else:
+            if self.no_damage > 0:
+                self.no_damage -= 1
             if left:
                 self.xvel = -FPS // 12
             if right:
@@ -399,33 +452,37 @@ class Player(pygame.sprite.Sprite):
             self.collide(0, self.yvel, TILES_GROUP)
             self.rect.x += self.xvel
             self.collide(self.xvel, 0, TILES_GROUP)
+            if 'boss' in LEVEL:
+                interface(self.hp)
             for sprite in DEADLY_TILES_GROUP:
                 if pygame.sprite.collide_mask(self, sprite):
-                    for elem in ALL_SPRITES:
-                        elem.kill()
-                    KEY = None
-                    left = right = up = False
-                    pygame.mixer.music.pause()
-                    SOUND.play('death')
-                    death_screen(SCREEN, CLOCK)
+                    if self.no_damage == 0:
+                        if 'boss' in LEVEL:
+                            SOUND.play('damage')
+                        self.hp -= 1
+                        self.no_damage += 105
             for sprite in ATTACK:
-                if pygame.sprite.collide_rect(self, sprite):
-                    for elem in ALL_SPRITES:
-                        elem.kill()
-                    KEY = None
-                    left = right = up = False
-                    pygame.mixer.music.pause()
-                    SOUND.play('death')
-                    death_screen(SCREEN, CLOCK)
+                if pygame.sprite.collide_mask(self, sprite):
+                    if self.no_damage == 0:
+                        if 'boss' in LEVEL:
+                            SOUND.play('damage')
+                        self.hp -= 1
+                        self.no_damage += 105
             for sprite in SHOOT_GROUP:
                 if pygame.sprite.collide_mask(self, sprite):
-                    for elem in ALL_SPRITES:
-                        elem.kill()
-                    KEY = None
-                    left = right = up = False
-                    pygame.mixer.music.pause()
-                    SOUND.play('death')
-                    death_screen(SCREEN, CLOCK)
+                    if self.no_damage == 0:
+                        if 'boss' in LEVEL:
+                            SOUND.play('damage')
+                        self.hp -= 1
+                        self.no_damage += 105
+            if self.hp == 0:
+                for elem in ALL_SPRITES:
+                    elem.kill()
+                KEY = None
+                left = right = up = False
+                pygame.mixer.music.pause()
+                SOUND.play('death')
+                death_screen(SCREEN, CLOCK)
             for sprite in BONUS_SPRITES:
                 if pygame.sprite.collide_mask(self, sprite):
                     SECOND_SCORE += 5
@@ -453,7 +510,7 @@ class Player(pygame.sprite.Sprite):
 
 # ----------------------------- Создание уровней --------------------------------------
 def generate_level(level):
-    global PLAYER, LEVEL
+    global PLAYER, LEVEL, SKULL
     x, y = None, None
     for y in range(len(level)):
         for x in range(len(level[y])):
@@ -517,9 +574,9 @@ def generate_level(level):
                 tile = Enemy(x, y)
                 ENEMY_GROUP.add(tile)
             elif level[y][x] == 'B':
-                boss = Boss(x, y)
-                DEADLY_TILES_GROUP.add(boss)
-                TILES_GROUP.remove(boss)
+                SKULL = Boss(x, y)
+                DEADLY_TILES_GROUP.add(SKULL)
+                TILES_GROUP.remove(SKULL)
     return PLAYER, x, y
 
 
@@ -868,14 +925,18 @@ class Sound_Control:
                      'boss_awoken': pygame.mixer.Sound('game_data/sound/awakening.wav'),
                      'pre_attack': pygame.mixer.Sound('game_data/sound/pre_attack.wav'),
                      'saw_attack': pygame.mixer.Sound('game_data/sound/saw.wav'),
-                     'bolt_attack': pygame.mixer.Sound('game_data/sound/thunder.wav')
+                     'bolt_attack': pygame.mixer.Sound('game_data/sound/thunder.wav'),
+                     'damage': pygame.mixer.Sound('game_data/sound/damage.wav')
                      }
         self.dict['bug_shoot'].set_volume(0.4)
         self.dict['click'].set_volume(0.3)
         self.dict['shoot'].set_volume(0.6)
-        self.dict['boom'].set_volume(0.2)
+        self.dict['boom'].set_volume(0.3)
+        self.dict['boss_awoken'].set_volume(0.6)
+        self.dict['saw_attack'].set_volume(1.2)
+        self.dict['damage'].set_volume(2)
 
-    def music_control(self):
+    def music_control(self, final=False):
         global LEVEL
         pygame.mixer.init()
         if LEVEL == 'menu' and pygame.mixer.music.get_busy() and self.check:
@@ -884,7 +945,7 @@ class Sound_Control:
         elif (LEVEL == 'first' or LEVEL == 'second') and pygame.mixer.music.get_busy() and (not self.check):
             pygame.mixer.music.fadeout(210)
             self.check = True
-        elif LEVEL == 'boss' and pygame.mixer.music.get_busy() and (not self.check):
+        elif 'boss' in LEVEL and pygame.mixer.music.get_busy() and (not self.check):
             pygame.mixer.music.fadeout(210)
             self.check = True
         elif LEVEL == 'menu' and (not pygame.mixer.music.get_busy()):
@@ -895,17 +956,21 @@ class Sound_Control:
             pygame.mixer.music.load('game_data/music/level.wav')
             pygame.mixer.music.set_volume(0.65)
             pygame.mixer.music.play(10)
-        # elif LEVEL == 'boss' and (not pygame.mixer.music.get_busy()):
-        #     pygame.mixer.music.load('game_data/music/boss.wav')
-        #     pygame.mixer.music.set_volume(0.5)
-        #     pygame.mixer.music.play()
+        elif 'boss' in LEVEL and (not pygame.mixer.music.get_busy()):
+            pygame.mixer.music.load('game_data/music/boss.wav')
+            pygame.mixer.music.set_volume(0.5)
+            pygame.mixer.music.play()
+        elif final:
+            pygame.mixer.music.fadeout(210)
+            pygame.mixer.music.load('game_data/music/final.wav')
+            pygame.mixer.music.play()
 
     def play(self, sound):
         global CHANNEL, BOOM_CHANNEL, BUG_CHANNEL, ATTACK_CHANNEL
         pygame.mixer.init()
         if sound == 'boom':
             BOOM_CHANNEL.play(self.dict[sound])
-        elif sound == 'bug_shoot':
+        elif sound == 'bug_shoot' or sound == 'boss_awoken' or sound == 'damage':
             BUG_CHANNEL.play(self.dict[sound])
         elif sound in ['saw_attack', 'bolt_attack']:
             ATTACK_CHANNEL.play(self.dict[sound])
@@ -974,6 +1039,15 @@ def scores(screen):
         screen.blit(text, (700, 50))
 
 
+def interface(health):
+    for h in INTERFACE:
+        h.kill()
+    for i in range(health):
+        hp = pygame.sprite.Sprite()
+        hp.image = load_image('heart.png')
+        hp.rect = hp.image.get_rect()
+        hp.rect.x, hp.rect.y = 5 + (55 * i), 70
+        hp.add(INTERFACE)
 # ----------------------------- Вспомогательные вещи ------------------------------------------------------
 
 
@@ -981,7 +1055,7 @@ def main():
     global FPS, LEVEL, PLAYER, KEY, FIRST_SCORE, left, right, up, \
         CHANNEL, SOUND, BOOM_CHANNEL, BUG_CHANNEL, ATTACK_CHANNEL
     pygame.init()
-    pygame.display.set_caption('I wanna be a CODER (v.3.0.0)')
+    pygame.display.set_caption('I wanna be a CODER')
 
     SOUND = Sound_Control()
     SOUND.music_control()
@@ -1089,21 +1163,23 @@ def main():
                 text = font.render(f"{ERROR_TEXT}", True, pygame.Color('red'))
                 SCREEN.blit(text, (500, 470))
         else:
-            SOUND.music_control()
+            if 'boss' not in LEVEL:
+                SOUND.music_control()
             ALL_SPRITES.draw(SCREEN)
             RETURN_SPRITE.draw(SCREEN)
+            INTERFACE.draw(SCREEN)
             if LEVEL == 'second' or ('boss' in LEVEL):
+                if 'boss' in LEVEL:
+                    for a in ATTACK:
+                        a.update()
+                    for b in But:
+                        b.update()
+                    for b in BOSS:
+                        b.update()
                 for m in BONUS_SPRITES:
                     m.update()
                 for e in EFFECTS:
                     e.update()
-                if 'boss' in LEVEL:
-                    for b in But:
-                        b.update()
-                    for a in ATTACK:
-                        a.update()
-                    for b in BOSS:
-                        b.update()
                 for s in DEADLY_TILES_GROUP:
                     s.update()
                 for bug in ENEMY_GROUP:
