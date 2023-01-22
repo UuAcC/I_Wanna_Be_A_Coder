@@ -33,20 +33,21 @@ def load_level(filename):
 FPS = 70
 WIDTH = 800
 HEIGHT = 600
-BTN_SPRITES, SAVE_BTN_SPRITES, CURSOR = pygame.sprite.Group(), pygame.sprite.Group(), pygame.sprite.Group()
+BTN_SPRITES, SAVE_BTN_SPRITES, CURSOR, BOSS = pygame.sprite.Group(), pygame.sprite.Group(), \
+                                              pygame.sprite.Group(), pygame.sprite.Group()
 SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
 CLOCK = pygame.time.Clock()
 POINTS, SAVES = [], []
 PLAYER, KEY, CAMERA = None, None, None
 LEVEL = 'menu'
-CHANNEL, SOUND, BOOM_CHANNEL, BUG_CHANNEL = None, None, None, None
+CHANNEL, SOUND, BOOM_CHANNEL, BUG_CHANNEL, ATTACK_CHANNEL = None, None, None, None, None
 ALL_SPRITES, EFFECTS = pygame.sprite.Group(), pygame.sprite.Group()
 TILES_GROUP, DEADLY_TILES_GROUP = pygame.sprite.Group(), pygame.sprite.Group()
 GATES_GROUP = But = pygame.sprite.Group()
 RIGHT_DOORS, WRONG_DOORS, WIN_DOORS = pygame.sprite.Group(), pygame.sprite.Group(), pygame.sprite.Group()
 PLAYER_GROUP, ENEMY_GROUP = pygame.sprite.Group(), pygame.sprite.Group()
 LOCK_GROUP, BONUS_SPRITES, RETURN_SPRITE = pygame.sprite.Group(), pygame.sprite.Group(), pygame.sprite.Group()
-PLAYER_SHOOT_GROUP, SHOOT_GROUP = pygame.sprite.Group(), pygame.sprite.Group()
+PLAYER_SHOOT_GROUP, SHOOT_GROUP, ATTACK = pygame.sprite.Group(), pygame.sprite.Group(), pygame.sprite.Group()
 FIRST_SCORE, SECOND_SCORE, ERROR_TEXT = None, None, False
 HEALTH = DIFF = 0
 JUMP_POWER = 5
@@ -96,17 +97,24 @@ class Camera:
 
 # ----------------------------- Все объекты --------------------------------------
 class AnimatedSprite(pygame.sprite.Sprite):
-    def __init__(self, sheet, columns, rows, pos_x, pos_y, count, extra=False):
+    def __init__(self, sheet, columns, rows, pos_x, pos_y, count, extra=False, bolt=False):
         super().__init__(BONUS_SPRITES, ALL_SPRITES)
         self.frames = []
         self.cut_sheet(sheet, columns, rows)
         self.cur_frame = 0
         self.image = self.frames[self.cur_frame]
-        self.rect = self.image.get_rect().move(
-            tile_width * pos_x, tile_height * pos_y)
+        # if diff:
+        #     self.image = pygame.transform.scale(self.image, (100, 100))
+        if bolt:
+            rect = pygame.Rect((12, 0), (26, 120))
+            self.rect = rect.move(pos_x, pos_y)
+        else:
+            self.rect = self.image.get_rect().move(
+                tile_width * pos_x, tile_height * pos_y)
         self.count = count
         self.bufer = count
         self.extra = extra
+        self.bolt = bolt
         self.mask = pygame.mask.from_surface(self.image)
 
     def cut_sheet(self, sheet, columns, rows):
@@ -123,8 +131,15 @@ class AnimatedSprite(pygame.sprite.Sprite):
         if self.count == 0:
             self.cur_frame = (self.cur_frame + 1) % len(self.frames)
             self.image = self.frames[self.cur_frame]
+            if self.bolt:
+                rect = pygame.Rect(self.rect.topleft,
+                                   (30,
+                                    (((120 + 120 * self.cur_frame) if self.cur_frame > 6 else 1)
+                                     if self.cur_frame < 8 else 600)))
+                self.rect = rect
+            #     self.image = pygame.transform.scale(self.image, (100, 100))
             self.count = self.bufer
-        if self.extra and self.cur_frame == 6:
+        if self.extra and self.image == self.frames[-1]:
             self.kill()
 
 
@@ -136,7 +151,7 @@ class Tile(pygame.sprite.Sprite):
                 self.image = pygame.transform.flip(random.choice(TILE_IMAGES[tile_type]), False, True)
             else:
                 self.image = random.choice(TILE_IMAGES[tile_type])
-        elif tile_type == 'gate' or tile_type == 'skull':
+        elif tile_type == 'gate':
             if reverse:
                 self.image = TILE_IMAGES[tile_type][0]
             else:
@@ -183,6 +198,66 @@ class Shoot(pygame.sprite.Sprite):
                                           (self.rect.y - 8) / 25, 7, True)
                     BONUS_SPRITES.remove(boom)
                     EFFECTS.add(boom)
+
+
+class Boss(pygame.sprite.Sprite):
+    def __init__(self, pos_x, pos_y):
+        super().__init__(BOSS, ALL_SPRITES)
+        self.image = TILE_IMAGES['skull'][1]
+        self.rect = self.image.get_rect().move(
+            tile_width * pos_x, tile_height * pos_y)
+        self.mask = pygame.mask.from_surface(self.image)
+        self.hp = 100
+        self.process = ''
+        self.attacks = ['t']
+        self.count = 500
+
+    def update(self):
+        global DIFF
+        self.count += 1
+        for bullet in PLAYER_SHOOT_GROUP:
+            if pygame.sprite.collide_mask(self, bullet):
+                self.hp -= 1
+                boom = AnimatedSprite(load_image('player_boom.png'), 7, 1, (bullet.rect.x - 10) / 25,
+                                      (bullet.rect.y - 9) / 25, 7, True)
+                BONUS_SPRITES.remove(boom)
+                EFFECTS.add(boom)
+                bullet.kill()
+        if self.hp == 0:
+            pass
+        if self.count == 700:
+            attack = random.choice(self.attacks)
+            if attack == 't':
+                self.process = 't'
+            if attack == 's':
+                self.process = 's'
+            self.count = 0
+        if self.process == 't':
+            if DIFF == 'hard':
+                a = 60
+            elif DIFF == 'normal':
+                a = 90
+            else:
+                a = 120
+            if self.count % a == 0:
+                x = random.randint(25, 725)
+                self.thunder_attack(x)
+                SOUND.play('bolt_attack')
+        if self.process == 's':
+            self.saw_attack()
+
+    def saw_attack(self):
+        saw_1 = AnimatedSprite(load_image('saw.png'), 4, 1, 1, 1, 7, False, (True if DIFF == 'hard' else False))
+        saw_2 = AnimatedSprite(load_image('saw.png'), 4, 1, 28, 20, 7, False, (True if DIFF == 'hard' else False))
+        BONUS_SPRITES.remove(saw_1)
+        ATTACK.add(saw_1)
+        BONUS_SPRITES.remove(saw_2)
+        ATTACK.add(saw_2)
+
+    def thunder_attack(self, x):
+        bolt = AnimatedSprite(load_image('bolt.png'), 11, 1, x, 25, 5, True, True)
+        BONUS_SPRITES.remove(bolt)
+        ATTACK.add(bolt)
 
 
 class Enemy(pygame.sprite.Sprite):
@@ -273,7 +348,7 @@ class Player(pygame.sprite.Sprite):
 
     def update(self, e=False):
         global KEY, FIRST_SCORE, FIRST_COMPLETE, LEVEL, JUMP_POWER, GRAVITY, left, \
-            right, up, SECOND_SCORE, SECOND_COMPLETE, But
+            right, up, SECOND_SCORE, SECOND_COMPLETE, But, CAMERA
         if LEVEL == 'first':
             self.rect.x += FPS // 20
             if KEY == pygame.K_s:
@@ -333,6 +408,15 @@ class Player(pygame.sprite.Sprite):
                     pygame.mixer.music.pause()
                     SOUND.play('death')
                     death_screen(SCREEN, CLOCK)
+            for sprite in ATTACK:
+                if pygame.sprite.collide_rect(self, sprite):
+                    for elem in ALL_SPRITES:
+                        elem.kill()
+                    KEY = None
+                    left = right = up = False
+                    pygame.mixer.music.pause()
+                    SOUND.play('death')
+                    death_screen(SCREEN, CLOCK)
             for sprite in SHOOT_GROUP:
                 if pygame.sprite.collide_mask(self, sprite):
                     for elem in ALL_SPRITES:
@@ -351,6 +435,8 @@ class Player(pygame.sprite.Sprite):
                 if pygame.sprite.collide_mask(self, sprite) and e:
                     for elem in ALL_SPRITES:
                         elem.kill()
+                    CAMERA = None
+                    SOUND.play('boss_awoken')
                     generate_level(load_level('_boss_arena.txt'))
             for sprite in WIN_DOORS:
                 if pygame.sprite.collide_mask(self, sprite):
@@ -431,7 +517,7 @@ def generate_level(level):
                 tile = Enemy(x, y)
                 ENEMY_GROUP.add(tile)
             elif level[y][x] == 'B':
-                boss = Tile('skull', x, y)
+                boss = Boss(x, y)
                 DEADLY_TILES_GROUP.add(boss)
                 TILES_GROUP.remove(boss)
     return PLAYER, x, y
@@ -657,7 +743,7 @@ def victory_screen(screen, clock):
 
 
 def rules_of_first(screen, clock):
-    global LEVEL, CAMERA, FIRST_SCORE
+    global LEVEL, CAMERA, FIRST_SCORE, FIRST_COMPLETE
     while True:
         SCREEN.fill(pygame.Color('black'))
         fon = pygame.transform.scale(load_image('first_rules.png'), (WIDTH, HEIGHT))
@@ -667,6 +753,7 @@ def rules_of_first(screen, clock):
                 terminate()
             elif event.type == pygame.KEYDOWN or \
                     event.type == pygame.MOUSEBUTTONDOWN:
+                FIRST_COMPLETE = False
                 FIRST_SCORE = 0
                 CAMERA = Camera()
                 LEVEL = 'first'
@@ -677,7 +764,7 @@ def rules_of_first(screen, clock):
 
 
 def rules_of_second(screen, clock):
-    global LEVEL, CAMERA, SECOND_SCORE
+    global LEVEL, CAMERA, SECOND_SCORE, SECOND_COMPLETE
     while True:
         SCREEN.fill(pygame.Color('black'))
         fon = pygame.transform.scale(load_image('second_rules.png'), (WIDTH, HEIGHT))
@@ -687,6 +774,7 @@ def rules_of_second(screen, clock):
                 terminate()
             elif event.type == pygame.KEYDOWN or \
                     event.type == pygame.MOUSEBUTTONDOWN:
+                SECOND_COMPLETE = False
                 SECOND_SCORE = 30
                 CAMERA = Camera()
                 return
@@ -813,12 +901,14 @@ class Sound_Control:
         #     pygame.mixer.music.play()
 
     def play(self, sound):
-        global CHANNEL, BOOM_CHANNEL, BUG_CHANNEL
+        global CHANNEL, BOOM_CHANNEL, BUG_CHANNEL, ATTACK_CHANNEL
         pygame.mixer.init()
         if sound == 'boom':
             BOOM_CHANNEL.play(self.dict[sound])
         elif sound == 'bug_shoot':
             BUG_CHANNEL.play(self.dict[sound])
+        elif sound in ['saw_attack', 'bolt_attack']:
+            ATTACK_CHANNEL.play(self.dict[sound])
         else:
             CHANNEL.play(self.dict[sound])
 
@@ -888,17 +978,19 @@ def scores(screen):
 
 
 def main():
-    global FPS, LEVEL, PLAYER, KEY, FIRST_SCORE, left, right, up, CHANNEL, SOUND, BOOM_CHANNEL, BUG_CHANNEL
+    global FPS, LEVEL, PLAYER, KEY, FIRST_SCORE, left, right, up, \
+        CHANNEL, SOUND, BOOM_CHANNEL, BUG_CHANNEL, ATTACK_CHANNEL
     pygame.init()
     pygame.display.set_caption('I wanna be a CODER (v.3.0.0)')
 
     SOUND = Sound_Control()
     SOUND.music_control()
 
-    pygame.mixer.set_num_channels(3)
+    pygame.mixer.set_num_channels(4)
     CHANNEL = pygame.mixer.Channel(0)
     BOOM_CHANNEL = pygame.mixer.Channel(1)
     BUG_CHANNEL = pygame.mixer.Channel(2)
+    ATTACK_CHANNEL = pygame.mixer.Channel(3)
 
     start_screen(SCREEN, CLOCK)
     extras()
@@ -1000,11 +1092,6 @@ def main():
             SOUND.music_control()
             ALL_SPRITES.draw(SCREEN)
             RETURN_SPRITE.draw(SCREEN)
-            PLAYER.update()
-            if CAMERA:
-                CAMERA.update(PLAYER)
-                for sprite in ALL_SPRITES:
-                    CAMERA.apply(sprite)
             if LEVEL == 'second' or ('boss' in LEVEL):
                 for m in BONUS_SPRITES:
                     m.update()
@@ -1012,6 +1099,10 @@ def main():
                     e.update()
                 if 'boss' in LEVEL:
                     for b in But:
+                        b.update()
+                    for a in ATTACK:
+                        a.update()
+                    for b in BOSS:
                         b.update()
                 for s in DEADLY_TILES_GROUP:
                     s.update()
@@ -1022,6 +1113,11 @@ def main():
                 for shoot in PLAYER_SHOOT_GROUP:
                     shoot.update()
                 scores(SCREEN)
+            PLAYER.update()
+            if CAMERA:
+                CAMERA.update(PLAYER)
+                for sprite in ALL_SPRITES:
+                    CAMERA.apply(sprite)
         pygame.display.flip()
         CLOCK.tick(FPS)
 
