@@ -209,7 +209,7 @@ class Boss(pygame.sprite.Sprite):
         self.rect = self.image.get_rect().move(
             tile_width * pos_x, tile_height * pos_y)
         self.mask = pygame.mask.from_surface(self.image)
-        self.hp = 100
+        self.hp = 125
         self.process = ''
         self.attacks = ['s', 't']
         self.count = 500
@@ -227,16 +227,19 @@ class Boss(pygame.sprite.Sprite):
                 BONUS_SPRITES.remove(boom)
                 EFFECTS.add(boom)
                 bullet.kill()
-        if self.hp == 0:
-            SOUND.music_control(True)
-            victory_screen(SCREEN, CLOCK)
-            for elem in ALL_SPRITES:
-                elem.kill()
-            KEY = None
-            return
+        if self.hp < 60:
+            self.image = TILE_IMAGES['skull'][0]
+            DIFF = 'hard'
+            if self.hp == 0:
+                SOUND.music_control(True)
+                ending_credits(SCREEN, CLOCK)
+                for elem in ALL_SPRITES:
+                    elem.kill()
+                KEY = None
+                return
         if self.count == 700:
             attack = random.choice(self.attacks)
-            if random.randint(0, 1) == 1:
+            if random.choice([0, 1]) == 1:
                 SOUND.play('pre_attack')
             if attack == 't':
                 self.process = 't'
@@ -795,6 +798,34 @@ def victory_screen(screen, clock):
                 LEVEL = 'menu'
                 CAMERA = None
                 return
+        pygame.display.flip()
+        clock.tick(FPS)
+
+
+def ending_credits(screen, clock):
+    global LEVEL, CAMERA, SECOND_COMPLETE, FIRST_COMPLETE
+    fon = load_image('end.png')
+    y = 300
+    check = False
+    while True:
+        screen.fill((0, 0, 0))
+        screen.blit(fon, (0, y))
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                terminate()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    LEVEL = 'menu'
+                    SECOND_COMPLETE, FIRST_COMPLETE = False, False
+                    CAMERA = None
+                    return
+        if y > (-1 * 2400) and not check:
+            y -= 0.5
+        else:
+            fon = load_image('end_end.png')
+            check = True
+            y = 0
+        animation()
         pygame.display.flip()
         clock.tick(FPS)
 
