@@ -171,7 +171,7 @@ class Tile(pygame.sprite.Sprite):
 
 
 class Shoot(pygame.sprite.Sprite):
-    def __init__(self, pos_x, pos_y, tile_group, reverse=False, speed=3):
+    def __init__(self, pos_x, pos_y, tile_group, reverse=False, speed=3, boss=False):
         global LEVEL
         super().__init__(SHOOT_GROUP, ALL_SPRITES)
         if reverse:
@@ -183,23 +183,28 @@ class Shoot(pygame.sprite.Sprite):
         self.mask = pygame.mask.from_surface(self.image)
         self.speed = speed
         self.tile = tile_group
+        self.boss = boss
 
     def update(self):
         self.rect.x += self.speed
-        for sprite in TILES_GROUP:
-            if pygame.sprite.collide_mask(self, sprite):
-                self.kill()
-                SOUND.play('boom')
-                if self.tile == 'player_shoot':
-                    boom = AnimatedSprite(load_image('player_boom.png'), 7, 1, self.rect.x / 25,
+        if not self.boss:
+            for sprite in TILES_GROUP:
+                if pygame.sprite.collide_mask(self, sprite):
+                    self.kill()
+                    SOUND.play('boom')
+                    if self.tile == 'player_shoot':
+                        boom = AnimatedSprite(load_image('player_boom.png'), 7, 1, self.rect.x / 25,
                                           (self.rect.y - 9) / 25, 7, True)
-                    BONUS_SPRITES.remove(boom)
-                    EFFECTS.add(boom)
-                else:
-                    boom = AnimatedSprite(load_image('enemy_boom.png'), 7, 1, self.rect.x / 25,
-                                          (self.rect.y - 8) / 25, 7, True)
-                    BONUS_SPRITES.remove(boom)
-                    EFFECTS.add(boom)
+                        BONUS_SPRITES.remove(boom)
+                        EFFECTS.add(boom)
+                    else:
+                        boom = AnimatedSprite(load_image('enemy_boom.png'), 7, 1, self.rect.x / 25,
+                                              (self.rect.y - 8) / 25, 7, True)
+                        BONUS_SPRITES.remove(boom)
+                        EFFECTS.add(boom)
+        else:
+            if 825 <= self.rect.x <= -25:
+                self.kill()
 
 
 class Boss(pygame.sprite.Sprite):
@@ -212,8 +217,9 @@ class Boss(pygame.sprite.Sprite):
         self.mask = pygame.mask.from_surface(self.image)
         self.hp = 125
         self.process = ''
-        self.attacks = ['s', 't']
+        self.attacks = ['s', 't', 'b']
         self.count = 500
+        self.sp = 0
         self.check = False
 
     def update(self):
@@ -244,7 +250,7 @@ class Boss(pygame.sprite.Sprite):
                 SOUND.play('pre_attack')
             if attack == 't':
                 self.process = 't'
-            if attack == 's':
+            elif attack == 's':
                 self.saw_1 = AnimatedSprite(load_image('saw.png'), 4, 1, 25, 25, 7, False, False, True)
                 x, y = (700 if DIFF == 'hard' else 725), (500 if DIFF == 'hard' else 525)
                 self.saw_2 = AnimatedSprite(load_image('saw.png'), 4, 1, x, y, 7, False, False, True)
@@ -255,6 +261,9 @@ class Boss(pygame.sprite.Sprite):
                 self.check = False
                 SOUND.play('saw_attack')
                 self.process = 's'
+            else:
+                self.sp = 0
+                self.process = 'b'
             self.count = 0
         if self.process == 't':
             if DIFF == 'hard':
@@ -267,7 +276,7 @@ class Boss(pygame.sprite.Sprite):
                 x = random.randint(25, 725)
                 self.thunder_attack(x)
                 SOUND.play('bolt_attack')
-        if self.process == 's':
+        elif self.process == 's':
             if DIFF == 'hard':
                 a = 7
             elif DIFF == 'normal':
@@ -275,6 +284,19 @@ class Boss(pygame.sprite.Sprite):
             else:
                 a = 5
             self.saw_attack(a, self.saw_1, self.saw_2)
+        elif self.process == 'b':
+            self.sp += 1
+            if DIFF == 'hard':
+                a = 7
+                sped = 35
+            elif DIFF == 'normal':
+                a = 5
+                sped = 45
+            else:
+                a = 4
+                sped = 50
+            if self.sp % sped == 0:
+                self.bullet_attack(a, self.sp, sped)
 
     def saw_attack(self, a, saw_1, saw_2):
         if not self.check:
@@ -303,6 +325,13 @@ class Boss(pygame.sprite.Sprite):
         bolt = AnimatedSprite(load_image('bolt.png'), 11, 1, x, 25, 5, True, True)
         BONUS_SPRITES.remove(bolt)
         ATTACK.add(bolt)
+
+    def bullet_attack(self, a, coord, sped):
+        shoot = Shoot(25, coord - ((coord // sped) * 10), 'enemy_shoot', True, a, True)
+        SHOOT_GROUP.add(shoot)
+        shoot = Shoot(775, coord - ((coord // sped) * 10) + 25, 'enemy_shoot', False, -1 * a, True)
+        SHOOT_GROUP.add(shoot)
+        SOUND.play('bug_shoot')
 
 
 class Enemy(pygame.sprite.Sprite):
@@ -468,8 +497,7 @@ class Player(pygame.sprite.Sprite):
             for sprite in ATTACK:
                 if pygame.sprite.collide_mask(self, sprite):
                     if self.no_damage == 0:
-                        if 'boss' in LEVEL:
-                            SOUND.play('damage')
+                        SOUND.play('damage')
                         self.hp -= 1
                         self.no_damage += 105
             for sprite in SHOOT_GROUP:
@@ -494,6 +522,7 @@ class Player(pygame.sprite.Sprite):
                     sprite.kill()
             for sprite in But:
                 if pygame.sprite.collide_mask(self, sprite) and e:
+                    SOUND.now = 'boss'
                     for elem in ALL_SPRITES:
                         elem.kill()
                     CAMERA = None
@@ -710,16 +739,20 @@ class ReturnBtn(pygame.sprite.Sprite):
 
 
 class Point:
+    points = []
+
     def __init__(self):
         self.h = 600
         self.w = random.randint(0, 800)
         self.color = (4, 242, 255)
 
     def update(self):
+        Point.points.clear()
         if self.h > 500:
             self.h -= 2
         else:
-            self.color = (0, 0, 0)
+            POINTS.remove(self)
+            Point.points.append(self)
 
 
 def animate(screen, point):
@@ -945,7 +978,7 @@ def save_list_init():
 
 # ----------------------------- Музлишко ------------------------------------------------------
 class Sound_Control:
-    def __init__(self):
+    def __init__(self, channels):
         self.check = False
         self.dict = {'coin': pygame.mixer.Sound('game_data/sound/coin.wav'),
                      'click': pygame.mixer.Sound('game_data/sound/click.wav'),
@@ -960,6 +993,9 @@ class Sound_Control:
                      'bolt_attack': pygame.mixer.Sound('game_data/sound/thunder.wav'),
                      'damage': pygame.mixer.Sound('game_data/sound/damage.wav')
                      }
+        self.channels = channels
+        self.prev = 'menu'
+        self.now = 'menu'
         self.dict['bug_shoot'].set_volume(0.4)
         self.dict['click'].set_volume(0.3)
         self.dict['shoot'].set_volume(0.6)
@@ -973,29 +1009,40 @@ class Sound_Control:
         pygame.mixer.init()
         if LEVEL == 'menu' and pygame.mixer.music.get_busy() and self.check:
             pygame.mixer.music.fadeout(210)
+            self.prev = 'menu'
             self.check = False
         elif (LEVEL == 'first' or LEVEL == 'second') and pygame.mixer.music.get_busy() and (not self.check):
             pygame.mixer.music.fadeout(210)
+            self.prev = 'levels'
             self.check = True
         elif 'boss' in LEVEL and pygame.mixer.music.get_busy() and (not self.check):
             pygame.mixer.music.fadeout(210)
+            self.prev = 'boss'
             self.check = True
         elif LEVEL == 'menu' and (not pygame.mixer.music.get_busy()):
-            pygame.mixer.music.load('game_data/music/main_menu.wav')
+            self.now = 'menu'
+            pygame.mixer.music.load('game_data/music/main_menu.mp3')
             pygame.mixer.music.set_volume(0.65)
             pygame.mixer.music.play()
         elif (LEVEL == 'first' or LEVEL == 'second') and (not pygame.mixer.music.get_busy()):
-            pygame.mixer.music.load('game_data/music/level.wav')
+            self.now = 'levels'
+            pygame.mixer.music.load('game_data/music/level.mp3')
             pygame.mixer.music.set_volume(0.65)
             pygame.mixer.music.play(10)
         elif 'boss' in LEVEL and (not pygame.mixer.music.get_busy()):
-            pygame.mixer.music.load('game_data/music/boss.wav')
+            self.now = 'boss'
+            pygame.mixer.music.load('game_data/music/boss.mp3')
             pygame.mixer.music.set_volume(0.5)
             pygame.mixer.music.play()
         elif final:
+            self.prev = 'final'
+            self.now = 'final'
             pygame.mixer.music.fadeout(210)
-            pygame.mixer.music.load('game_data/music/final.wav')
+            pygame.mixer.music.load('game_data/music/final.mp3')
             pygame.mixer.music.play()
+        if self.prev != self.now:
+            for chan in self.channels:
+                chan.fadeout(140)
 
     def play(self, sound):
         global CHANNEL, BOOM_CHANNEL, BUG_CHANNEL, ATTACK_CHANNEL
@@ -1089,14 +1136,15 @@ def main():
     pygame.init()
     pygame.display.set_caption('I wanna be a CODER')
 
-    SOUND = Sound_Control()
-    SOUND.music_control()
-
     pygame.mixer.set_num_channels(4)
     CHANNEL = pygame.mixer.Channel(0)
     BOOM_CHANNEL = pygame.mixer.Channel(1)
     BUG_CHANNEL = pygame.mixer.Channel(2)
     ATTACK_CHANNEL = pygame.mixer.Channel(3)
+    channels = [CHANNEL, BOOM_CHANNEL, BUG_CHANNEL, ATTACK_CHANNEL]
+
+    SOUND = Sound_Control(channels)
+    SOUND.music_control()
 
     start_screen(SCREEN, CLOCK)
     extras()
@@ -1171,7 +1219,7 @@ def main():
                     up = True
                 if event.type == pygame.KEYUP and event.key == pygame.K_SPACE:
                     up = False
-                if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     PLAYER.shoot()
                     btn.update(event.pos, event.button)
                 if event.type == pygame.MOUSEMOTION:
