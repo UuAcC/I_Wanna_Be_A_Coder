@@ -22,7 +22,7 @@ def load_image(name, colorkey=None):
 
 
 def load_level(filename):
-    filename = "game_data/" + filename
+    filename = "game_data/levels/" + filename
     with open(filename, 'r') as mapFile:
         level_map = [line.strip() for line in mapFile]
     max_width = max(map(len, level_map))
@@ -223,7 +223,7 @@ class Boss(pygame.sprite.Sprite):
         self.check = False
 
     def update(self):
-        global DIFF, KEY
+        global DIFF, KEY, PLAYER
         self.count += 1
         SOUND.music_control()
         for bullet in PLAYER_SHOOT_GROUP:
@@ -297,6 +297,12 @@ class Boss(pygame.sprite.Sprite):
                 sped = 50
             if self.sp % sped == 0:
                 self.bullet_attack(a, self.sp, sped)
+        for sprite in ATTACK:
+            if pygame.sprite.collide_mask(PLAYER, sprite):
+                if PLAYER.no_damage == 0:
+                    SOUND.play('damage')
+                    PLAYER.hp -= 1
+                    PLAYER.no_damage += 105
 
     def saw_attack(self, a, saw_1, saw_2):
         if not self.check:
@@ -494,12 +500,6 @@ class Player(pygame.sprite.Sprite):
                             SOUND.play('damage')
                         self.hp -= 1
                         self.no_damage += 105
-            for sprite in ATTACK:
-                if pygame.sprite.collide_mask(self, sprite):
-                    if self.no_damage == 0:
-                        SOUND.play('damage')
-                        self.hp -= 1
-                        self.no_damage += 105
             for sprite in SHOOT_GROUP:
                 if pygame.sprite.collide_mask(self, sprite):
                     if self.no_damage == 0:
@@ -622,12 +622,14 @@ class Button(pygame.sprite.Sprite):
               load_image('second_btn.png'),
               load_image('boss_btn.png'),
               load_image('save_menu_btn.png'),
+              load_image('gear_btn.png'),
               load_image('save_btn.png'),
               load_image('load_btn.png')]
     c_images = [load_image('first_btn_clicked.png'),
                 load_image('second_btn_clicked.png'),
                 load_image('boss_btn_clicked.png'),
                 load_image('save_menu_btn_clicked.png'),
+                load_image('gear_btn_clicked.png'),
                 load_image('save_btn_clicked.png'),
                 load_image('load_btn_clicked.png')]
 
@@ -638,10 +640,10 @@ class Button(pygame.sprite.Sprite):
         self.mask = pygame.mask.from_surface(self.image)
         if n < 3:
             self.rect.topleft = (100, 200 + 120 * n)
-        elif n == 3:
-            self.rect.topleft = (700, 475)
+        elif n == 3 or n == 4:
+            self.rect.topleft = (700 - (75 * (n - 3)), 475)
         else:
-            self.rect.topleft = (575, 125 + 100 * (n - 4))
+            self.rect.topleft = (575, 125 + 100 * (n - 5))
 
     def update(self, pos, button=3, cur=None):
         global LEVEL, FIRST_SCORE, FIRST_COMPLETE, SECOND_SCORE, SECOND_COMPLETE, SCREEN, ERROR_TEXT
@@ -653,20 +655,23 @@ class Button(pygame.sprite.Sprite):
                 SOUND.play('click')
                 LEVEL = 'first'
                 generate_level(load_level('_just_run_level.txt'))
-                rules_of_first(SCREEN, CLOCK)
+                rules(SCREEN, CLOCK, 'first_rules.png')
             elif button == 1 and self.rect.topleft == (100, 320):
                 SOUND.play('click')
                 LEVEL = 'second'
                 generate_level(load_level('_platformer_level.txt'))
-                rules_of_second(SCREEN, CLOCK)
+                rules(SCREEN, CLOCK, 'second_rules.png')
             elif button == 1 and self.rect.topleft == (100, 440) and (FIRST_COMPLETE and SECOND_COMPLETE):
                 SOUND.play('click')
                 LEVEL = 'boss_but'
                 generate_level(load_level('_boss_button.txt'))
-                rules_of_boss(SCREEN, CLOCK)
+                rules(SCREEN, CLOCK, 'boss_rules.png')
             elif button == 1 and self.rect.topleft == (700, 475):
                 SOUND.play('click')
                 LEVEL = 'save'
+            elif button == 1 and self.rect.topleft == (625, 475):
+                SOUND.play('click')
+                rules(SCREEN, CLOCK, 'gearbox.png')
             elif button == 1 and self.rect.topleft == (575, 125):
                 SOUND.play('click')
                 if cur:
@@ -864,77 +869,44 @@ def ending_credits(screen, clock):
         clock.tick(FPS)
 
 
-def rules_of_first(screen, clock):
-    global LEVEL, CAMERA, FIRST_SCORE, FIRST_COMPLETE
+def rules(screen, clock, need):
+    global LEVEL, CAMERA, FIRST_SCORE, FIRST_COMPLETE, SECOND_SCORE, SECOND_COMPLETE, HEALTH, DIFF
     while True:
         SCREEN.fill(pygame.Color('black'))
-        fon = pygame.transform.scale(load_image('first_rules.png'), (WIDTH, HEIGHT))
+        fon = pygame.transform.scale(load_image(need), (WIDTH, HEIGHT))
         screen.blit(fon, (0, 0))
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 terminate()
             elif event.type == pygame.KEYDOWN or \
                     event.type == pygame.MOUSEBUTTONDOWN:
-                FIRST_COMPLETE = False
-                FIRST_SCORE = 0
-                CAMERA = Camera()
-                LEVEL = 'first'
+                if need == 'first_rules.png':
+                    FIRST_COMPLETE = False
+                    FIRST_SCORE = 0
+                    CAMERA = Camera()
+                    LEVEL = 'first'
+                elif need == 'second_rules.png':
+                    SECOND_COMPLETE = False
+                    SECOND_SCORE = 30
+                    CAMERA = Camera()
+                elif need == 'boss_rules.png':
+                    if FIRST_SCORE > 1:
+                        DIFF = 'easy'
+                    elif FIRST_SCORE < -1:
+                        DIFF = 'hard'
+                    else:
+                        DIFF = 'normal'
+                    if SECOND_SCORE > 15:
+                        HEALTH = 3
+                    elif SECOND_SCORE < 0:
+                        HEALTH = 1
+                    else:
+                        HEALTH = 2
+                    CAMERA = Camera()
                 return
         animation()
         pygame.display.flip()
         clock.tick(FPS)
-
-
-def rules_of_second(screen, clock):
-    global LEVEL, CAMERA, SECOND_SCORE, SECOND_COMPLETE
-    while True:
-        SCREEN.fill(pygame.Color('black'))
-        fon = pygame.transform.scale(load_image('second_rules.png'), (WIDTH, HEIGHT))
-        screen.blit(fon, (0, 0))
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                terminate()
-            elif event.type == pygame.KEYDOWN or \
-                    event.type == pygame.MOUSEBUTTONDOWN:
-                SECOND_COMPLETE = False
-                SECOND_SCORE = 30
-                CAMERA = Camera()
-                return
-        animation()
-        pygame.display.flip()
-        clock.tick(FPS)
-
-
-def rules_of_boss(screen, clock):
-    global LEVEL, CAMERA, SECOND_SCORE, FIRST_SCORE, HEALTH, DIFF
-    while True:
-        SCREEN.fill(pygame.Color('black'))
-        fon = pygame.transform.scale(load_image('boss_rules.png'), (WIDTH, HEIGHT))
-        screen.blit(fon, (0, 0))
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                terminate()
-            elif event.type == pygame.KEYDOWN or \
-                    event.type == pygame.MOUSEBUTTONDOWN:
-                if FIRST_SCORE > 1:
-                    DIFF = 'easy'
-                elif FIRST_SCORE < -1:
-                    DIFF = 'hard'
-                else:
-                    DIFF = 'normal'
-                if SECOND_SCORE > 15:
-                    HEALTH = 3
-                elif SECOND_SCORE < 0:
-                    HEALTH = 1
-                else:
-                    HEALTH = 2
-                CAMERA = Camera()
-                return
-        animation()
-        pygame.display.flip()
-        clock.tick(FPS)
-
-
 # ----------------------------- Заставка, экран смерти и окна правил --------------------------------------
 
 
@@ -956,7 +928,7 @@ class Cursor(pygame.sprite.Sprite):
 def save_list_visual(screen):
     global SAVES
     pygame.draw.rect(screen, (4, 242, 255), [(50, 125), (425, 375)], 5)
-    font = pygame.font.Font('font/orbitron-bold.otf', 12)
+    font = pygame.font.Font('game_data/font/orbitron-bold.otf', 12)
     for n, line in enumerate(SAVES):
         text = font.render(f"Result 1st: {line[0]}, Result 2nd: {line[1]}", True, pygame.Color('cyan'))
         screen.blit(text, (170, (125 + n * 25) + 17 + n * 5))
@@ -971,8 +943,6 @@ def save_list_init():
         t = [line[0], line[1]]
         SAVES.append(t)
     table.close()
-
-
 # ----------------------------- Штуки для сейвов ------------------------------------------------------
 
 
@@ -1055,8 +1025,6 @@ class Sound_Control:
             ATTACK_CHANNEL.play(self.dict[sound])
         else:
             CHANNEL.play(self.dict[sound])
-
-
 # ----------------------------- Музлишко ------------------------------------------------------
 
 
@@ -1090,7 +1058,7 @@ def scores(screen):
             else:
                 text = 'NOT BAD'
                 color = (255, 255, 255)
-            font = pygame.font.Font('font/orbitron-bold.otf', 30)
+            font = pygame.font.Font('game_data/font/orbitron-bold.otf', 30)
             text = font.render(f"Result: {text}", True, color)
             screen.blit(text, (350, 230))
         if SECOND_COMPLETE:
@@ -1103,7 +1071,7 @@ def scores(screen):
             else:
                 text = 'NOT BAD'
                 color = (255, 255, 255)
-            font = pygame.font.Font('font/orbitron-bold.otf', 30)
+            font = pygame.font.Font('game_data/font/orbitron-bold.otf', 30)
             text = font.render(f"Result: {text}", True, color)
             screen.blit(text, (350, 350))
     elif LEVEL == 'second':
@@ -1113,7 +1081,7 @@ def scores(screen):
             color = (255, 7, 58)
         else:
             color = (255, 255, 255)
-        font = pygame.font.Font('font/orbitron-bold.otf', 30)
+        font = pygame.font.Font('game_data/font/orbitron-bold.otf', 30)
         text = font.render(f"{SECOND_SCORE}", True, color)
         screen.blit(text, (700, 50))
 
@@ -1153,9 +1121,9 @@ def main():
     btns = []
     save_btns = []
     btn = ReturnBtn()
-    for n in range(4):
+    for n in range(5):
         btns.append(Button(n))
-    for n in range(4, 6):
+    for n in range(5, 7):
         b = Button(n)
         BTN_SPRITES.remove(b)
         SAVE_BTN_SPRITES.add(b)
@@ -1239,7 +1207,7 @@ def main():
             save_list_visual(SCREEN)
             CURSOR.draw(SCREEN)
             if ERROR_TEXT:
-                font = pygame.font.Font('font/orbitron-bold.otf', 20)
+                font = pygame.font.Font('game_data/font/orbitron-bold.otf', 20)
                 text = font.render(f"{ERROR_TEXT}", True, pygame.Color('red'))
                 SCREEN.blit(text, (500, 470))
         else:
