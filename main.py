@@ -696,17 +696,25 @@ class Button(pygame.sprite.Sprite):
             elif button == 1 and self.rect.topleft == (575, 225):
                 SOUND.play('click')
                 if cur:
+                    ERROR_TEXT = False
+                    errs = []
                     try:
-                        ERROR_TEXT = False
                         FIRST_SCORE = int(SAVES[cur - 1][0])
                         if FIRST_SCORE is not None:
                             FIRST_COMPLETE = True
+                    except ValueError:
+                        errs.append('1')
+                    try:
                         SECOND_SCORE = int(SAVES[cur - 1][1])
                         if SECOND_SCORE is not None:
                             SECOND_COMPLETE = True
-                        LEVEL = 'menu'
                     except ValueError:
-                        ERROR_TEXT = 'ERROR: broken save'
+                        errs.append('1')
+                    finally:
+                        if len(errs) == 2:
+                            ERROR_TEXT = 'ERROR: broken save'
+                        else:
+                            LEVEL = 'menu'
         else:
             if self.image in Button.c_images:
                 self.image = Button.images[Button.c_images.index(self.image)]
