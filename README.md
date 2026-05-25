@@ -1,218 +1,194 @@
-# I Wanna Be a CODER
+# I_Wanna_Be_a_CODER
 
 ![Python](https://img.shields.io/badge/Python-3.7+-blue.svg)
 ![Pygame](https://img.shields.io/badge/pygame-2.0+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-windows%20%7C%20linux%20%7C%20macOS-lightgrey.svg)
+![License](https://img.shields.io/badge/license-MIT-red.svg)
 
-**I Wanna Be a CODER** is a 2D platformer game developed in Python using Pygame. The game features two distinct level types (runner and platformer), a challenging boss battle, save/load system, and dynamic difficulty scaling based on player performance.
+**I_Wanna_Be_a_CODER** — это 2D-платформер, разработанный на Python с использованием библиотеки Pygame. Игра включает два различных типа уровней (раннер и классический платформер), битву со сложным боссом, систему сохранения/загрузки и динамическую сложность, меняющуюся в зависимости от результатов игрока.
 
-## Game Features
+## Особенности игры
 
-- **Two Level Types**: 
-  - First level: Auto-scrolling runner with door choices affecting score
-  - Second level: Traditional platformer with enemies, shooting mechanics, and collectible coins
-- **Dynamic Boss Battle**: Difficulty adjusts based on player's performance in previous levels
-- **Save System**: Store and load results from 12 save slots
-- **Interactive UI**: Main menu, rules screens, death/victory screens, and ending credits
-- **Audio System**: Background music and sound effects with channel management
-- **Camera System**: Smooth camera following in platformer levels
+- **Два типа уровней**: 
+  - Первый уровень: автоскроллинг с выбором дверей, влияющих на счёт.
+  - Второй уровень: классический платформер с врагами, стрельбой и собираемыми монетами.
+- **Динамическая битва с боссом**: сложность зависит от прохождения предыдущих уровней.
+- **Система сохранений**: 12 слотов для сохранения результатов.
+- **Интерактивный интерфейс**: главное меню, экраны правил, смерти, победы и финальные титры.
+- **Аудиосистема**: фоновая музыка и звуковые эффекты с управлением каналами.
+- **Система камеры**: плавное следование за игроком на платформерных уровнях.
 
-## Getting Started
+## Начало работы
 
-### Prerequisites
+### Требования
 
-- Python 3.7 or higher
-- Pygame library
+- Python 3.7 или выше
+- Библиотека Pygame
 
-### Installation
+### Установка
 
 ```
-# Clone the repository
+# Клонирование репозитория
 git clone https://github.com/yourusername/i-wanna-be-a-coder.git
 cd i-wanna-be-a-coder
 
-# Install dependencies
+# Установка зависимостей
 pip install pygame
 ```
 
-### Running the Game
+### Запуск игры
 
 ```
 python main.py
 ```
 
-## Game Structure
+## Структура проекта
 
-### Directory Layout
+### Расположение директорий
 
 ```
 game_data/
-├── sprites/          # Game graphics (PNG files)
-├── levels/           # Level files (.txt format)
-├── music/            # Background music (MP3 files)
-├── sound/            # Sound effects (WAV files)
-├── font/             # Custom fonts (OTF files)
-└── saves.txt         # Save data storage
+├── sprites/          # Графика (PNG файлы)
+├── levels/           # Файлы уровней (.txt)
+├── music/            # Фоновая музыка (MP3)
+├── sound/            # Звуковые эффекты (WAV)
+├── font/             # Пользовательские шрифты (OTF)
+└── saves.txt         # Файл сохранений
 ```
 
-### Level File Format
+### Формат файлов уровней
 
-Levels are represented as text files where each character represents a tile type:
+Уровни представлены в виде текстовых файлов, где каждый символ обозначает тип тайла:
 
-| Symbol | Tile Type |
-|--------|-----------|
-| `#` | Wall |
-| `!` | Vertical spike (pointing down) |
-| `?` | Vertical spike (pointing up) |
-| `=` | Horizontal spike (pointing right) |
-| `-` | Horizontal spike (pointing left) |
-| `$` | Right door (adds score) |
-| `%` | Wrong door (subtracts score) |
-| `w` | Win gate |
-| `*` | Coin |
-| `&` | Boss lever |
-| `s` | Saw |
-| `@` | Player spawn |
-| `9` | Enemy (shoots left) |
-| `8` | Enemy (shoots right) |
-| `B` | Boss spawn |
+| Символ | Тип тайла                         |
+|--------|-----------------------------------|
+| `#`    | Стена                             |
+| `!`    | Вертикальный шип (остриём вниз)   |
+| `?`    | Вертикальный шип (остриём вверх)  |
+| `=`    | Горизонтальный шип (вправо)       |
+| `-`    | Горизонтальный шип (влево)        |
+| `$`    | Правая дверь (увеличивает счёт)   |
+| `%`    | Неправильная дверь (уменьшает счёт) |
+| `w`    | Выходная дверь (победа)           |
+| `*`    | Монета                            |
+| `&`    | Рычаг призыва босса               |
+| `s`    | Пила                              |
+| `@`    | Точка появления игрока            |
+| `9`    | Враг (стреляет влево)             |
+| `8`    | Враг (стреляет вправо)            |
+| `B`    | Появление босса                   |
 
-## Core Mechanics
+## Основная механика
 
-### Player Controls
+### Управление игроком
 
-| Action | Key |
-|--------|-----|
-| Move Left | A |
-| Move Right | D |
-| Jump | Space |
-| Shoot | Left Mouse Button |
-| Interact (with lever) | E |
+| Действие          | Клавиша            |
+|-------------------|--------------------|
+| Движение влево    | A                  |
+| Движение вправо   | D                  |
+| Прыжок            | Space              |
+| Выстрел           | Левая кнопка мыши  |
+| Взаимодействие    | E (с рычагом босса)|
 
-### Gameplay Systems
+### Игровые системы
 
-1. **First Level (Runner)**:
-   - Auto-scrolling horizontal movement
-   - Player controls vertical positioning with W/S keys
-   - Choose doors to affect final score
+1. **Первый уровень (раннер)**:
+   - Автоматическое горизонтальное движение
+   - Игрок управляет только вертикальным положением клавишами W/S
+   - Выбор дверей влияет на итоговый счёт
 
-2. **Second Level (Platformer)**:
-   - Full movement with gravity and jumping
-   - Shoot enemies (5 hits to defeat)
-   - Collect coins (+5 points each)
-   - Avoid spikes, saws, and enemy projectiles
+2. **Второй уровень (платформер)**:
+   - Полное управление с гравитацией и прыжками
+   - Стрельба по врагам (5 попаданий для уничтожения)
+   - Сбор монет (+5 очков каждая)
+   - Необходимо избегать шипов, пил и вражеских пуль
 
-3. **Boss Battle**:
-   - Activates after completing both levels
-   - Difficulty (easy/normal/hard) determined by:
-     - First level score (above 1 = easy, below -1 = hard)
-     - Second level score (above 15 = +health, below 0 = -health)
-   - Boss attacks: Thunder strikes, circular saws, bullet barrages
+3. **Битва с боссом**:
+   - Активируется после прохождения обоих уровней
+   - Сложность (easy/normal/hard) определяется:
+     - Счётом первого уровня (выше 1 = easy, ниже -1 = hard)
+     - Счётом второго уровня (выше 15 = + здоровье, ниже 0 = - здоровье)
+   - Атаки босса: удары молниями, циркулярные пилы, пулемётные очереди
 
-### Scoring System
+### Система подсчёта очков
 
-- **First Level**: Score changes based on door choices (right door: +1, wrong door: -1)
-- **Second Level**: Start with 30 points, -1 on death, +5 per coin
-- **Boss Health**: 2 base HP, modified by second level performance
+- **Первый уровень**: счёт меняется при прохождении дверей (правая дверь: +1, неправильная: -1)
+- **Второй уровень**: начало с 30 очками, -1 при смерти, +5 за монету
+- **Здоровье босса**: базово 2 HP, модифицируется результатами второго уровня
 
-## Code Architecture
+## Архитектура кода
 
-### Main Classes
+### Основные классы
 
-| Class | Description |
-|-------|-------------|
-| `Player` | Character control, collision, shooting, damage handling |
-| `Camera` | Viewport following for platformer levels |
-| `Boss` | Boss logic with multiple attack patterns and HP management |
-| `Enemy` | Stationary turret enemies with shooting patterns |
-| `Tile` | Static level geometry (walls, spikes, doors) |
-| `Shoot` | Projectiles from player and enemies |
-| `AnimatedSprite` | Frame-based animations for coins, effects, saws |
-| `Button` | UI buttons with hover/click states |
-| `Sound_Control` | Centralized audio management with multiple channels |
+| Класс | Описание |
+|-------|----------|
+| `Player` | Управление персонажем, коллизии, стрельба, обработка урона |
+| `Camera` | Система камеры для платформерных уровней |
+| `Boss` | Логика босса: паттерны атак, управление HP |
+| `Enemy` | Стационарные враги-турели с паттернами стрельбы |
+| `Tile` | Статическая геометрия уровня (стены, шипы, двери) |
+| `Shoot` | Снаряды игрока и врагов |
+| `AnimatedSprite` | Кадровая анимация (монеты, эффекты, пилы) |
+| `Button` | UI-кнопки с состояниями наведения/нажатия |
+| `Sound_Control` | Централизованное управление аудио с несколькими каналами |
 
-### Sprite Groups
+### Группы спрайтов
 
-The game uses Pygame's `sprite.Group` for efficient object management:
+В игре используются группы спрайтов Pygame (`sprite.Group`) для эффективного управления объектами:
 
-- `ALL_SPRITES`: All renderable objects
-- `TILES_GROUP`: Solid collision geometry
-- `DEADLY_TILES_GROUP`: Hazards that damage player
-- `ENEMY_GROUP`: Enemy units
-- `PLAYER_SHOOT_GROUP`: Player projectiles
-- `SHOOT_GROUP`: Enemy projectiles
-- `BONUS_SPRITES`: Collectibles
-- `EFFECTS`: Explosion animations
-- `ATTACK`: Boss attack objects
+- `ALL_SPRITES` — все отображаемые объекты
+- `TILES_GROUP` — твёрдая геометрия для коллизий
+- `DEADLY_TILES_GROUP` — опасности, наносящие урон игроку
+- `ENEMY_GROUP` — враги
+- `PLAYER_SHOOT_GROUP` — снаряды игрока
+- `SHOOT_GROUP` — снаряды врагов
+- `BONUS_SPRITES` — собираемые предметы
+- `EFFECTS` — анимации взрывов
+- `ATTACK` — объекты атак босса
 
-### Collision System
+### Система коллизий
 
-- Uses `pygame.sprite.collide_mask()` for pixel-perfect collision
-- Separate horizontal and vertical collision handling with position correction
-- Invincibility frames after taking damage (105 frames)
+- Используется `pygame.sprite.collide_mask()` для попиксельных столкновений
+- Раздельная обработка горизонтальных и вертикальных коллизий с коррекцией позиции
+- Кадры неуязвимости после получения урона (105 кадров)
 
-## Save System
+## Система сохранений
 
-The game supports saving and loading results from 12 slots:
-- Stores first level score (or "???" if incomplete)
-- Stores second level score (or "???" if incomplete)
-- Data persists in `game_data/saves.txt`
+Игра поддерживает сохранение и загрузку результатов в 12 слотов:
+- Сохраняется счёт первого уровня (или "???" если уровень не пройден)
+- Сохраняется счёт второго уровня (или "???" если уровень не пройден)
+- Данные хранятся в файле `game_data/saves.txt`
 
-Save format example:
+Пример формата сохранения:
 ```
 15;42
 -2;???
 ???;18
 ```
 
-## Audio Management
+## Управление аудио
 
-The `Sound_Control` class manages:
-- 4 audio channels (SFX, explosions, enemy sounds, boss attacks)
-- Dynamic background music switching between menu, levels, and boss fight
-- Volume balancing for different sound types
+Класс `Sound_Control` управляет:
+- 4 аудиоканалами (SFX, взрывы, звуки врагов, атаки босса)
+- Динамическим переключением фоновой музыки (меню → уровни → битва с боссом)
+- Балансировкой громкости для различных типов звуков
 
-## State Management
+## Управление состояниями
 
-Game states are controlled by the `LEVEL` global variable:
-- `'menu'` - Main menu
-- `'save'` - Save/Load screen
-- `'first'` - Runner level
-- `'second'` - Platformer level
-- `'boss_but'` - Boss entrance room
-- `'boss_arena'` - Boss fight
+Состояния игры управляются глобальной переменной `LEVEL`:
+- `'menu'` — главное меню
+- `'save'` — экран сохранения/загрузки
+- `'first'` — уровень-раннер
+- `'second'` — платформер
+- `'boss_but'` — комната перед боссом
+- `'boss_arena'` — битва с боссом
 
-## Development Notes
-
-### Global Variables
-
-The code uses several global variables for state management. While not ideal, they were necessary given the project scope. Key globals include:
-- `LEVEL`, `PLAYER`, `CAMERA` - Core game state
-- `FIRST_SCORE`, `SECOND_SCORE` - Progress tracking
-- `left`, `right`, `up` - Movement flags
-- `DIFF`, `HEALTH` - Boss difficulty parameters
-
-### Extending the Game
-
-To add new level types:
-1. Create a new level file in `game_data/levels/`
-2. Add level symbol mappings in `generate_level()`
-3. Implement level-specific logic in `Player.update()`
-
-To add new enemy types:
-1. Create sprite assets
-2. Extend `TILE_IMAGES` dictionary
-3. Add symbol handler in `generate_level()`
-
-Authors
+Авторы
 -------
-### Developer
-- [Simonov Maksim](https://github.com/UuAcC)
-### Supervisor
-- Alexandr Popov
+### Разработчик
+- [Симонов Максим](https://github.com/UuAcC)
 
-Developed as a course project demonstrating game development concepts in Python using Pygame.
-
+Разработано в качестве учебного проекта в Яндекс.Лицее (курс: Основы промышленного программирования | Д22), демонстрирующего концепции разработки игр на Python с использованием Pygame.
 
 ---
-**Note**: All game assets (sprites, music, sound effects) are property of their respective owners and should be replaced with original content for distribution.
+**Примечание**: Все игровые ресурсы (спрайты, музыка, звуковые эффекты) принадлежат соответствующим владельцам. Для распространения замените их на оригинальный контент.
